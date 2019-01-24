@@ -162,3 +162,11 @@ def rerec(bboxA):
 def imresample(img, sz):
     im_data = cv2.resize(img, (sz[1], sz[0]), interpolation=cv2.INTER_AREA) #@UndefinedVariable
     return im_data
+    
+def imnormalize(img):
+    """
+    Normalize pixel value from (0, 255) to (-1, 1) 
+    """
+
+    img = (img - 127.5) * 0.0078125
+    return img
