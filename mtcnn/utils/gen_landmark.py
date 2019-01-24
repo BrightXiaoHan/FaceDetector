@@ -108,5 +108,5 @@ def gen_landmark_data(meta, size, output_folder, argument=False):
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
-    np.save(os.path.join(output_folder, 'image_matrix.npy'))
-    np.save(os.path.join(output_folder, 'landmarks.npy'))
+    np.save(os.path.join(output_folder, 'image_matrix.npy'), final_images)
+    np.save(os.path.join(output_folder, 'landmarks.npy'), final_landmarks)

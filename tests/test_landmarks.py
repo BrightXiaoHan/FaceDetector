@@ -9,6 +9,7 @@ import cv2
 
 from mtcnn.datasets import get_by_name
 import mtcnn.utils.gen_landmark as gl
+from mtcnn.utils import draw
 
 DEFAULT_DATASET = 'CelebA'
 
@@ -18,7 +19,7 @@ class TestGenLandmarks(unittest.TestCase):
     
     def setUp(self):
         self.datasets = get_by_name(DEFAULT_DATASET)
-        self.output_folder = os.path.join(here, '../output/test/landmarks_12')
+        self.output_folder = os.path.join(here, '../output/test/landmarks_48')
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
@@ -28,10 +29,20 @@ class TestGenLandmarks(unittest.TestCase):
         images, landmarks = gl.get_landmark_data(self.output_folder)
         self.assertEqual(len(images), len(landmarks))
 
-        # Random sampling 100 pictures and draw landmark points on them.
+        # Random sampling 10 pictures and draw landmark points on them.
         output_folder = os.path.join(self.output_folder, 'sample_images')
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
 
-        for im, lm in zip(images[:100], landmarks[:100]):
-            pass
+        for i, (im, lm) in enumerate(zip(images[:10], landmarks[:10])):
+            w = im.shape[0]
+            h = im.shape[1]
+
+            lm[:, 0] *= w
+            lm[:, 1] *= h
+
+            lm = lm.astype(int)
+
+            draw.draw_landmarks(im, lm)
+            cv2.imwrite(os.path.join(output_folder, '%d.jpg' % i), im)
+
