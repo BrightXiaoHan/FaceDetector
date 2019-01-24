@@ -117,3 +117,6 @@ dmypy.json
 # ide
 .vscode
 .idea
+
+# derivative files
+output/
