@@ -94,6 +94,9 @@ class Network(object):
                         if not ignore_missing:
                             raise
 
+    def save(self, data_path):
+        pass
+
     def feed(self, *args):
         """Set the input(s) for the next operation by replacing the terminal nodes.
         The arguments can be either layer names or the actual layers.
@@ -212,6 +215,28 @@ class Network(object):
         normalize = tf.reduce_sum(target_exp, axis, keepdims=True)
         softmax = tf.div(target_exp, normalize, name)
         return softmax
+
+    @layer
+    def cls_loss(self, inp, name):
+        softmax = inp[0]
+        labels = inp[1]
+
+        logits = tf.log(softmax)
+        loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels,logits=logits, name=name)
+        return loss
+        
+    @layer
+    def box_loss(self, inp, name=None):
+        fc_output = inp[0]
+        labels = inp[1]
+
+        return tf.reduce_mean(tf.squared_difference(fc_output, labels))
+        
+    @layer
+    def landmark_loss(self, inp, name=None):
+        fc_output = inp[0]
+        labels = inp[1]
+        return tf.reduce_mean(tf.squared_difference(fc_output, labels))
     
 class PNet(Network):
     def setup(self):
@@ -228,6 +253,11 @@ class PNet(Network):
 
         (self.feed('PReLU3') #pylint: disable=no-value-for-parameter
              .conv(1, 1, 4, 1, 1, relu=False, name='conv4-2'))
+
+        (self.feed('prob1', 'labels').cls_loss(name='cls_loss')) #pylint: disable=no-value-for-parameter
+
+        (self.feed('conv4-2', 'boxreg').box_loss(name='box_loss')) #pylint: disable=no-value-for-parameter
+
         
 class RNet(Network):
     def setup(self):
@@ -247,6 +277,8 @@ class RNet(Network):
 
         (self.feed('prelu4') #pylint: disable=no-value-for-parameter
              .fc(4, relu=False, name='conv5-2'))
+
+        
 
 class ONet(Network):
     def setup(self):
