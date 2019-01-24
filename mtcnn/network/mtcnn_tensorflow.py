@@ -253,6 +253,9 @@ class PNet(Network):
 
         (self.feed('PReLU3') #pylint: disable=no-value-for-parameter
              .conv(1, 1, 4, 1, 1, relu=False, name='conv4-2'))
+        
+        (self.feed('PReLU3') #pylint: disable=no-value-for-parameter
+             .fc(10, relu=False, name='conv4-3'))
 
         (self.feed('prob1', 'labels').cls_loss(name='cls_loss')) #pylint: disable=no-value-for-parameter
 
@@ -278,8 +281,10 @@ class RNet(Network):
         (self.feed('prelu4') #pylint: disable=no-value-for-parameter
              .fc(4, relu=False, name='conv5-2'))
 
-        
+        (self.feed('prelu4') #pylint: disable=no-value-for-parameter
+             .fc(10, relu=False, name='conv5-3'))
 
+        
 class ONet(Network):
     def setup(self):
         (self.feed('data') #pylint: disable=no-value-for-parameter, no-member
