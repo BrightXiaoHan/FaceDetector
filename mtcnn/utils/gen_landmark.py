@@ -2,6 +2,7 @@ import os
 import random
 
 import cv2
+import progressbar
 import numpy as np
 import numpy.random as npr
 
@@ -30,12 +31,17 @@ def gen_landmark_data(meta, size, output_folder, argument=False):
     final_images = []
     final_landmarks = []
 
-    for item in meta:
+    bar = progressbar.ProgressBar(max_value=len(meta) - 1)
+
+    for index, item in enumerate(meta):
+        bar.update(index)
         image_path = item['file_name']
         boxes = item['meta_data']
         landmarks = item['landmarks']
 
         img = cv2.imread(image_path)
+        img_w = img.shape[0]
+        img_h = img.shape[1]
 
         for bbox, landmark in zip(boxes, landmarks):
             left = bbox[0]
@@ -76,7 +82,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False):
                 delta_x = npr.randint(-w * 0.2, w * 0.2)
                 delta_y = npr.randint(-h * 0.2, h * 0.2)
                 nx1 = int(max(left+w/2-bbox_size/2+delta_x, 0))
-                ny1 = int(max(right+h/2-bbox_size/2+delta_y, 0))
+                ny1 = int(max(top+h/2-bbox_size/2+delta_y, 0))
 
                 nx2 = nx1 + bbox_size
                 ny2 = ny1 + bbox_size
@@ -90,8 +96,8 @@ def gen_landmark_data(meta, size, output_folder, argument=False):
 
                 if iou > 0.65:
                     landmark_croppedx = (landmark[:, 0] - nx1) / bbox_size
-                    landmark_croppedy = (landmark[:, 1] - nx2) / bbox_size
-                    landmark_gt = np.concatenate(
+                    landmark_croppedy = (landmark[:, 1] - ny1) / bbox_size
+                    landmark_gt = np.stack(
                         [landmark_croppedx, landmark_croppedy], 1)
 
                     cropped_img = img[ny1: ny2, nx1: nx2]

@@ -23,7 +23,7 @@ class TestGenLandmarks(unittest.TestCase):
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
-        gl.gen_landmark_data(meta, 48, self.output_folder)
+        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True)
 
     def test_get_landmark_data(self):
         images, landmarks = gl.get_landmark_data(self.output_folder)
