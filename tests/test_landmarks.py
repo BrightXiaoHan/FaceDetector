@@ -8,7 +8,7 @@ import unittest
 import cv2
 
 from mtcnn.datasets import get_by_name
-import mtcnn.utils.gen_landmark as gl
+import mtcnn.train.gen_landmark as gl
 from mtcnn.utils import draw
 
 DEFAULT_DATASET = 'CelebA'

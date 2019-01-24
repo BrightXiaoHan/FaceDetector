@@ -8,7 +8,7 @@ import unittest
 import cv2
 
 from mtcnn.datasets import get_by_name
-import mtcnn.utils.gen_pnet_train as gptd
+import mtcnn.train.gen_pnet_train as gptd
 
 DEFAULT_DATASET = 'WiderFace'
 
