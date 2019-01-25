@@ -191,7 +191,7 @@ class Network(object):
                 # The input is spatial. Vectorize it first.
                 dim = 1
                 for d in input_shape[1:].as_list():
-                    dim *= int(d)
+                        dim *= int(d)
                 feed_in = tf.reshape(inp, [-1, dim])
             else:
                 feed_in, dim = (inp, input_shape[-1].value)
@@ -210,9 +210,9 @@ class Network(object):
     """
     @layer
     def softmax(self, target, axis, name=None):
-        max_axis = tf.reduce_max(target, axis, keepdims=True)
+        max_axis = tf.reduce_max(target, axis, keep_dims=True)
         target_exp = tf.exp(target-max_axis)
-        normalize = tf.reduce_sum(target_exp, axis, keepdims=True)
+        normalize = tf.reduce_sum(target_exp, axis, keep_dims=True)
         softmax = tf.div(target_exp, normalize, name)
         return softmax
 
@@ -261,6 +261,8 @@ class PNet(Network):
 
         (self.feed('conv4-2', 'boxreg').box_loss(name='box_loss')) #pylint: disable=no-value-for-parameter
 
+        (self.feed('conv4-3', 'landmarks').landmark_loss(name='landmarks')) #pylint: disable=no-value-for-parameter
+
         
 class RNet(Network):
     def setup(self):
@@ -283,6 +285,12 @@ class RNet(Network):
 
         (self.feed('prelu4') #pylint: disable=no-value-for-parameter
              .fc(10, relu=False, name='conv5-3'))
+        
+        (self.feed('prob1', 'labels').cls_loss(name='cls_loss')) #pylint: disable=no-value-for-parameter
+
+        (self.feed('conv5-2', 'boxreg').box_loss(name='box_loss')) #pylint: disable=no-value-for-parameter
+
+        (self.feed('conv5-3', 'landmarks').landmark_loss(name='landmarks')) #pylint: disable=no-value-for-parameter
 
         
 class ONet(Network):
@@ -309,6 +317,12 @@ class ONet(Network):
 
         (self.feed('prelu5') #pylint: disable=no-value-for-parameter
              .fc(10, relu=False, name='conv6-3'))
+
+        (self.feed('prob1', 'labels').cls_loss(name='cls_loss')) #pylint: disable=no-value-for-parameter
+
+        (self.feed('conv6-2', 'boxreg').box_loss(name='box_loss')) #pylint: disable=no-value-for-parameter
+
+        (self.feed('conv6-3', 'landmarks').landmark_loss(name='landmarks')) #pylint: disable=no-value-for-parameter
 
 def create_mtcnn(sess, model_path):
     if not model_path:
