@@ -12,6 +12,11 @@ class Net(nn.Module):
     def __init__(self, is_train=False, device='cpu', cls_factor=1, box_factor=1, landmark_factor=1):
         super(Net, self).__init__()
 
+        self.is_train = is_train
+        self.device = device
+
+        self._init_net()
+
         if is_train:
             # loss function
             self.cls_factor = cls_factor
@@ -20,9 +25,6 @@ class Net(nn.Module):
             self.loss_cls = nn.BCELoss()
             self.loss_box = nn.MSELoss()
             self.loss_landmark = nn.MSELoss()
-
-        self.is_train = is_train
-        self.device = device
 
         # weight initiation with xavier
         self.apply(weights_init)
@@ -33,6 +35,11 @@ class Net(nn.Module):
         if not self.is_train:
             self.eval()
 
+    def get_loss(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def _init_net(self):
+        pass
     
     def cls_loss(self,gt_label,pred_label):
         pred_label = torch.squeeze(pred_label)
@@ -75,12 +82,9 @@ class Net(nn.Module):
         return self.loss_landmark(valid_pred_landmark,valid_gt_landmark)*self.land_factor
 
 
-class PNet(nn.Module):
+class PNet(Net):
 
-    def __init__(self, is_train=False, device='cpu'):
-        super(PNet, self).__init__()
-        self.is_train = is_train
-        self.device = device
+    def _init_net(self):
 
         # backend
         self.body = nn.Sequential(
@@ -101,14 +105,6 @@ class PNet(nn.Module):
         # bounding box regresion
         self.box_offset = nn.Conv2d(32, 4, kernel_size=1, stride=1)
 
-        # weight initiation with xavier
-        self.apply(weights_init)
-
-        # Move tensor to target device
-        self.to(device)
-
-        if not self.is_train:
-            self.eval()
 
     def forward(self, x):
         feature_map = self.body(x)
@@ -118,12 +114,9 @@ class PNet(nn.Module):
         return label, offset
 
 
-class RNet(nn.Module):
+class RNet(Net):
 
-    def __init__(self, is_train=False, device='cpu'):
-        super(RNet, self).__init__()
-        self.is_train = is_train
-        self.device = device
+    def _init_net(self):
         # backend
         self.body = nn.Sequential(
             nn.Conv2d(3, 28, kernel_size=3, stride=1),  # conv1
@@ -143,21 +136,12 @@ class RNet(nn.Module):
         # detection
         self.cls = nn.Sequential(
             nn.Linear(128, 3),
-            nn.Softmax(3)
+            nn.Softmax(1)
         )
         # bounding box regression
         self.box_offset = nn.Linear(128, 4)
         # lanbmark localization
         self.landmarks = nn.Linear(128, 10)
-        # weight initiation weih xavier
-        self.apply(weights_init)
-
-        # Move tensor to target device
-        self.to(device)
-
-        if not self.is_train:
-            self.eval()
-
 
     def forward(self, x):
         # backend
@@ -172,14 +156,11 @@ class RNet(nn.Module):
         return det, box
 
 
-class ONet(nn.Module):
+class ONet(Net):
 
-    def __init__(self, is_train=False, device='cpu'):
-        super(ONet, self).__init__()
-        self.is_train = is_train
-        self.use_cuda = device
+    def _init_net(self):
         # backend
-        self.pre_layer = nn.Sequential(
+        self.body = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, stride=1),  # conv1
             nn.PReLU(),  # prelu1
             nn.MaxPool2d(kernel_size=3, stride=2),  # pool1
@@ -199,24 +180,15 @@ class ONet(nn.Module):
         )
         # detection
         self.cls = nn.Sequential(
-            nn.Linear(128, 3),
-            nn.Softmax(3)
+            nn.Linear(256, 3),
+            nn.Softmax(1)
         )
         # bounding box regression
-        self.box_offset = nn.Linear(128, 4)
+        self.box_offset = nn.Linear(256, 4)
         # lanbmark localization
-        self.landmarks = nn.Linear(128, 10)
+        self.landmarks = nn.Linear(256, 10)
         # weight initiation weih xavier
         self.apply(weights_init)
-
-        # weight initiation weih xavier
-        self.apply(weights_init)
-
-        # Move tensor to target device
-        self.to(device)
-
-        if not self.is_train:
-            self.eval()
 
     def forward(self, x):
         # backend
