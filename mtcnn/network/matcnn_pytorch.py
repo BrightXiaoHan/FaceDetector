@@ -60,8 +60,9 @@ class _Net(nn.Module):
         # Compute the loss
         cls_loss = self.cls_loss(gt_label, pred_label)
         box_loss = self.box_loss(gt_label, gt_boxes, pred_offset)
+        landmark_loss = self.landmark_loss(gt_label, gt_landmarks, pred_landmarks)
 
-        return cls_loss * self.cls_factor + box_loss * self.box_factor
+        return cls_loss + box_loss + landmark_loss
 
     def _init_net(self):
         raise NotImplementedError
