@@ -8,9 +8,9 @@ def weights_init(m):
         nn.init.constant(m.bias, 0.1)
 
 
-class Net(nn.Module):
-    def __init__(self, is_train=False, device='cpu', cls_factor=1, box_factor=1, landmark_factor=1):
-        super(Net, self).__init__()
+class _Net(nn.Module):
+    def __init__(self, cls_factor=1, box_factor=1, landmark_factor=1, is_train=False, device='cpu'):
+        super(_Net, self).__init__()
 
         self.is_train = is_train
         self.device = device
@@ -35,11 +35,36 @@ class Net(nn.Module):
         if not self.is_train:
             self.eval()
 
-    def get_loss(self, *args, **kwargs):
-        raise NotImplementedError
+    def get_loss(self, x, gt_label, gt_boxes, gt_landmarks):
+        """
+        Get total loss.
+        Arguments:
+            x {Tensor} -- Input normalized images. (Note here: rnet, onet only support fix size images.)
+            gt_label {Tensor} -- Ground truth label.
+            gt_boxes {Tensor} -- Ground truth boxes coordinate.
+        
+        Returns:
+            Tensor -- classification loss + box regression loss
+        """
+        if not self.is_train:
+            raise AssertionError("Method 'get_loss' is avaliable only when 'is_train' is True.")
+
+        # Forward pass
+        pred_label, pred_offset, pred_landmarks = self.forward(x)
+
+        # Reshape the tensor
+        pred_label = pred_label.view(-1, 1)
+        pred_offset = pred_offset.view(-1, 4)
+        pred_landmarks = pred_landmarks.view(-1, 10)
+
+        # Compute the loss
+        cls_loss = self.cls_loss(gt_label, pred_label)
+        box_loss = self.box_loss(gt_label, gt_boxes, pred_offset)
+
+        return cls_loss * self.cls_factor + box_loss * self.box_factor
 
     def _init_net(self):
-        pass
+        raise NotImplementedError
     
     def cls_loss(self,gt_label,pred_label):
         pred_label = torch.squeeze(pred_label)
@@ -82,7 +107,12 @@ class Net(nn.Module):
         return self.loss_landmark(valid_pred_landmark,valid_gt_landmark)*self.land_factor
 
 
-class PNet(Net):
+class PNet(_Net):
+
+    def __init__(self, **kwargs):
+        # Hyper-parameter from original papaer
+        param = [1, 0.5, 0.5]
+        super(PNet, self).__init__(*param, **kwargs)
 
     def _init_net(self):
 
@@ -104,17 +134,25 @@ class PNet(Net):
         )
         # bounding box regresion
         self.box_offset = nn.Conv2d(32, 4, kernel_size=1, stride=1)
+        # landmark regression
+        self.landmarks = nn.Conv2d(32, 10, kernel_size=1, stride=1)
 
 
     def forward(self, x):
         feature_map = self.body(x)
         label = self.cls(feature_map)
         offset = self.box_offset(feature_map)
+        landmarks = self.landmarks(feature_map)
 
-        return label, offset
+        return label, offset, landmarks
 
 
-class RNet(Net):
+class RNet(_Net):
+
+    def __init__(self, **kwargs):
+        # Hyper-parameter from original papaer
+        param = [1, 0.5, 0.5]
+        super(RNet, self).__init__(*param, **kwargs)
 
     def _init_net(self):
         # backend
@@ -135,8 +173,8 @@ class RNet(Net):
         )
         # detection
         self.cls = nn.Sequential(
-            nn.Linear(128, 3),
-            nn.Softmax(1)
+            nn.Linear(128, 1),
+            nn.Sigmoid()
         )
         # bounding box regression
         self.box_offset = nn.Linear(128, 4)
@@ -152,11 +190,17 @@ class RNet(Net):
         # detection
         det = self.cls(x)
         box = self.box_offset(x)
+        landmarks = self.landmarks(x)
 
-        return det, box
+        return det, box, landmarks
 
 
-class ONet(Net):
+class ONet(_Net):
+
+    def __init__(self, **kwargs):
+        # Hyper-parameter from original papaer
+        param = [1, 0.5, 1]
+        super(ONet, self).__init__(*param, **kwargs)
 
     def _init_net(self):
         # backend
@@ -180,8 +224,8 @@ class ONet(Net):
         )
         # detection
         self.cls = nn.Sequential(
-            nn.Linear(256, 3),
-            nn.Softmax(1)
+            nn.Linear(256, 1),
+            nn.Sigmoid()
         )
         # bounding box regression
         self.box_offset = nn.Linear(256, 4)
