@@ -18,7 +18,7 @@ def get_landmark_data(output_folder):
 
 
 
-def gen_landmark_data(meta, size, output_folder, argument=False):
+def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmarks'):
     """For training MTCNN, generate data for facial landmark localization task. 
     The Generated file will be saved in "output_folder"
 
@@ -110,6 +110,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False):
     final_images = np.stack(final_images)
     final_landmarks = np.stack(final_landmarks)
 
+    output_folder = os.path.join(output_folder, suffix)
     # Save the result
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)

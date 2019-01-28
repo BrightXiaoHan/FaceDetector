@@ -19,7 +19,7 @@ class TestGenLandmarks(unittest.TestCase):
     
     def setUp(self):
         self.datasets = get_by_name(DEFAULT_DATASET)
-        self.output_folder = os.path.join(here, '../output/test/landmarks_48')
+        self.output_folder = os.path.join(here, '../output/test/pnet')
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
