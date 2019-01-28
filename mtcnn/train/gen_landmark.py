@@ -108,6 +108,8 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
                     final_images.append(cropped_img)
                     final_landmarks.append(landmark_gt)
 
+    bar.update()
+
     # Joint all face images and landmarks together
     final_images = np.stack(final_images)
     final_landmarks = np.stack(final_landmarks)
