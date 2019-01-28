@@ -113,7 +113,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                                         interpolation=cv2.INTER_LINEAR)
 
                 negative_image.append(resized_im)
-                negative_meta_file.write(','.join(['0', '0', '0', '0']))
+                negative_meta_file.write(','.join(['0', '0', '0', '0']) + '\n')
 
                 neg_num += 1
 
@@ -150,7 +150,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 if np.max(Iou) < 0.3:
                     # Iou with all gts must below 0.3
                     negative_image.append(resized_im)
-                    negative_meta_file.write('1\n')
+                    negative_meta_file.write(','.join(['0', '0', '0', '0']) + '\n')
                     neg_num += 1
 
             # generate positive examples and part faces
