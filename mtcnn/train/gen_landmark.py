@@ -9,7 +9,9 @@ import numpy.random as npr
 from mtcnn.utils.functional import IoU
 
 
-def get_landmark_data(output_folder):
+def get_landmark_data(output_folder, suffix='landmarks'):
+    
+    output_folder = os.path.join(output_folder, suffix)
 
     images = np.load(os.path.join(output_folder, 'image_matrix.npy'))
     landmarks = np.load(os.path.join(output_folder, 'landmarks.npy'))
