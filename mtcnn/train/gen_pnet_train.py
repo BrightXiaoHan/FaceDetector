@@ -113,7 +113,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                                         interpolation=cv2.INTER_LINEAR)
 
                 negative_image.append(resized_im)
-                negative_meta_file.write('1\n')
+                negative_meta_file.write(','.join(['0', '0', '0', '0']))
 
                 neg_num += 1
 
@@ -184,12 +184,12 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 if IoU(crop_box, box_) >= 0.65:
                     positive_image.append(resized_im)
                     positive_meta_file.write(
-                        ','.join(['0', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                        ','.join([str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     pos_num += 1
                 elif IoU(crop_box, box_) >= 0.4:
                     part_image.append(resized_im)
                     part_meta_file.write(
-                        ','.join(['2', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                        ','.join([str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     part_num += 1
         # print("%s images done, pos: %s part: %s neg: %s" %
         #             (index, pos_num, part_num, neg_num))
