@@ -33,7 +33,7 @@ def get_training_data_for_pnet(output_folder):
     image_files = [os.path.join(x, 'pnet_image_matrix.npy') for x in dests]
 
     # load from disk to menmory
-    meta_data = [pd.read_csv(x) for x in meta_files]
+    meta_data = [pd.read_csv(x).as_matrix() for x in meta_files]
     images = [np.load(x) for x in image_files]
 
     return images, meta_data
@@ -73,6 +73,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
 
     # Traverse all images in training set.
     for index, item in enumerate(meta_data):
+        bar.update(index)
         # Read the image
         file_name = item['file_name']
         img = cv2.imread(file_name)
@@ -183,16 +184,15 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 if IoU(crop_box, box_) >= 0.65:
                     positive_image.append(resized_im)
                     positive_meta_file.write(
-                        ','.join(['0', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2), '\n']))
+                        ','.join(['0', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     pos_num += 1
                 elif IoU(crop_box, box_) >= 0.4:
                     part_image.append(resized_im)
                     part_meta_file.write(
-                        ','.join(['2', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2), '\n']))
+                        ','.join(['2', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     part_num += 1
         # print("%s images done, pos: %s part: %s neg: %s" %
         #             (index, pos_num, part_num, neg_num))
-        bar.update(index)
 
     bar.update()
     print("\nDone")
