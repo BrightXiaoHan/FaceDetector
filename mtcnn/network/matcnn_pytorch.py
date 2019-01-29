@@ -71,7 +71,7 @@ class _Net(nn.Module):
         pred_label = torch.squeeze(pred_label)
         gt_label = torch.squeeze(gt_label)
         # get the mask element which >= 0, only 0 and 1 can effect the detection loss
-        mask = torch.ge(gt_label,0)
+        mask = torch.eq(gt_label,0) | torch.eq(gt_label, 1)
         valid_gt_label = torch.masked_select(gt_label,mask)
         valid_pred_label = torch.masked_select(pred_label,mask)
         return self.loss_cls(valid_pred_label,valid_gt_label)*self.cls_factor
@@ -82,15 +82,14 @@ class _Net(nn.Module):
         gt_offset = torch.squeeze(gt_offset)
         gt_label = torch.squeeze(gt_label)
 
-        #get the mask element which != 0
-        unmask = torch.eq(gt_label,0)
-        mask = torch.eq(unmask,0)
-        #convert mask to dim index
-        chose_index = torch.nonzero(mask.data)
-        chose_index = torch.squeeze(chose_index)
+        mask = torch.eq(gt_label, 1) | torch.eq(gt_label, 2)
+        # broadcast mask
+        mask = torch.stack([mask] * 4, dim=1)
+
+
         #only valid element can effect the loss
-        valid_gt_offset = gt_offset[chose_index,:]
-        valid_pred_offset = pred_offset[chose_index,:]
+        valid_gt_offset = torch.masked_select(gt_offset, mask).reshape(-1, 4)
+        valid_pred_offset = torch.masked_select(pred_offset, mask).reshape(-1, 4)
         return self.loss_box(valid_pred_offset,valid_gt_offset)*self.box_factor
 
 
@@ -98,13 +97,12 @@ class _Net(nn.Module):
         pred_landmark = torch.squeeze(pred_landmark)
         gt_landmark = torch.squeeze(gt_landmark)
         gt_label = torch.squeeze(gt_label)
-        mask = torch.eq(gt_label,-2)
+        mask = torch.eq(gt_label, -2)
+        # broadcast mask
+        mask = torch.stack([mask] * 10, dim=1)
 
-        chose_index = torch.nonzero(mask.data)
-        chose_index = torch.squeeze(chose_index)
-
-        valid_gt_landmark = gt_landmark[chose_index, :]
-        valid_pred_landmark = pred_landmark[chose_index, :]
+        valid_gt_landmark = torch.masked_select(gt_landmark, mask).reshape(-1, 10)
+        valid_pred_landmark = torch.masked_select(pred_landmark, mask).reshape(-1, 10)
         return self.loss_landmark(valid_pred_landmark,valid_gt_landmark)*self.land_factor
 
 
