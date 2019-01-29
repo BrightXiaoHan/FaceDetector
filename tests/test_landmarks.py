@@ -4,6 +4,7 @@ Test cases for generate facial landmark localization training data
 
 import os
 import sys
+import random
 import unittest
 import cv2
 
@@ -15,15 +16,18 @@ DEFAULT_DATASET = 'CelebA'
 
 here = os.path.dirname(__file__)
 
+
 class TestGenLandmarks(unittest.TestCase):
-    
+
     def setUp(self):
         self.datasets = get_by_name(DEFAULT_DATASET)
         self.output_folder = os.path.join(here, '../output/test/pnet')
+        self.top = 100
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
-        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True)
+        meta = random.choices(meta, k=self.top)
+        gl.gen_landmark_data(meta, 12, self.output_folder, argument=True)
 
     def test_get_landmark_data(self):
         images, landmarks = gl.get_landmark_data(self.output_folder)
@@ -45,4 +49,3 @@ class TestGenLandmarks(unittest.TestCase):
 
             draw.draw_landmarks(im, lm)
             cv2.imwrite(os.path.join(output_folder, '%d.jpg' % i), im)
-
