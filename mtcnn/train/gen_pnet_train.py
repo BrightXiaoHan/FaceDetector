@@ -33,7 +33,7 @@ def get_training_data_for_pnet(output_folder):
     image_files = [os.path.join(x, 'pnet_image_matrix.npy') for x in dests]
 
     # load from disk to menmory
-    meta_data = [pd.read_csv(x).as_matrix() for x in meta_files]
+    meta_data = [pd.read_csv(x, header=None).as_matrix() for x in meta_files]
     images = [np.load(x) for x in image_files]
 
     return images, meta_data
