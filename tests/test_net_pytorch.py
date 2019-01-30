@@ -14,7 +14,7 @@ class TestMtcnnPytorch(unittest.TestCase):
         self.assertEqual(list(box.shape), [100, 4, 1, 1])
         self.assertEqual(list(landmarks.shape), [100, 10, 1, 1])
 
-        pnet.get_loss(data, torch.ones(100), torch.randn(100, 4), torch.randn(100, 10))
+        pnet.get_loss(data, torch.randint(-1, 3, (100, )), torch.randn(100, 4), torch.randn(100, 10))
 
     def test_rnet(self):
         rnet = mtcnn.RNet(is_train=True)

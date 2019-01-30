@@ -22,7 +22,7 @@ class _Net(nn.Module):
             self.cls_factor = cls_factor
             self.box_factor = box_factor
             self.land_factor = landmark_factor
-            self.loss_cls = nn.BCELoss()
+            self.loss_cls = nn.BCELoss(reduction='none')
             self.loss_box = nn.MSELoss()
             self.loss_landmark = nn.MSELoss()
 
@@ -70,11 +70,27 @@ class _Net(nn.Module):
     def cls_loss(self,gt_label,pred_label):
         pred_label = torch.squeeze(pred_label)
         gt_label = torch.squeeze(gt_label)
-        # get the mask element which >= 0, only 0 and 1 can effect the detection loss
+
+
+        # Online hard sample mining
+
         mask = torch.eq(gt_label,0) | torch.eq(gt_label, 1)
-        valid_gt_label = torch.masked_select(gt_label,mask)
-        valid_pred_label = torch.masked_select(pred_label,mask)
-        return self.loss_cls(valid_pred_label,valid_gt_label)*self.cls_factor
+        valid_gt_label = torch.masked_select(gt_label, mask)
+        valid_pred_label = torch.masked_select(pred_label, mask)
+
+        pos_mask = torch.eq(valid_gt_label, 1)
+        neg_mask = torch.eq(valid_gt_label, 0)
+
+        loss = self.loss_cls(valid_pred_label,valid_gt_label)
+        neg_loss = loss.masked_select(neg_mask)
+        pos_loss = loss.masked_select(pos_mask)
+        
+        if neg_loss.shape[0] > pos_loss.shape[0]: 
+            neg_loss, _ = neg_loss.topk(pos_loss.shape[0])
+        loss = torch.cat([pos_loss, neg_loss])
+        loss = torch.mean(loss)
+
+        return loss * self.cls_factor
 
 
     def box_loss(self,gt_label,gt_offset,pred_offset):
@@ -97,7 +113,7 @@ class _Net(nn.Module):
         pred_landmark = torch.squeeze(pred_landmark)
         gt_landmark = torch.squeeze(gt_landmark)
         gt_label = torch.squeeze(gt_label)
-        mask = torch.eq(gt_label, -2)
+        mask = torch.eq(gt_label, -1)
         # broadcast mask
         mask = torch.stack([mask] * 10, dim=1)
 
