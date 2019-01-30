@@ -96,7 +96,7 @@ class MtcnnDataset(Dataset):
         self.images = np.concatenate(
             (pos_img, neg_img, part_img, landmark_image))
 
-        # Give label 0 to neg, 1 to pos, 2 to part, -2 to landmark
+        # Give label 0 to neg, 1 to pos, 2 to part, -1 to landmark
         self.labels = np.concatenate((np.ones(pos_img.shape[0]), np.zeros(
             neg_img.shape[0]), np.ones(part_img.shape[0])*2, np.ones(landmark_image.shape[0]) * -2)).astype(int)
 
