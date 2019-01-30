@@ -22,7 +22,7 @@ class _Net(nn.Module):
             self.cls_factor = cls_factor
             self.box_factor = box_factor
             self.land_factor = landmark_factor
-            self.loss_cls = nn.BCELoss(reduction='none')
+            self.loss_cls = nn.NLLLoss(reduction='none')
             self.loss_box = nn.MSELoss()
             self.loss_landmark = nn.MSELoss()
 
@@ -53,7 +53,7 @@ class _Net(nn.Module):
         pred_label, pred_offset, pred_landmarks = self.forward(x)
 
         # Reshape the tensor
-        pred_label = pred_label.view(-1, 1)
+        pred_label = pred_label.view(-1, 2)
         pred_offset = pred_offset.view(-1, 4)
         pred_landmarks = pred_landmarks.view(-1, 10)
 
@@ -68,6 +68,16 @@ class _Net(nn.Module):
         raise NotImplementedError
     
     def cls_loss(self,gt_label,pred_label):
+        """Classification loss 
+        
+        Args:
+            gt_label (Tensor): Pobability distribution with shape (batch_size, 2)
+            pred_label (Tensor): Ground truth lables with shape (batch_size)
+        
+        Returns:
+            Tensor: Cross-Entropy loss multiply by cls_factor
+        """
+
         pred_label = torch.squeeze(pred_label)
         gt_label = torch.squeeze(gt_label)
 
@@ -76,12 +86,17 @@ class _Net(nn.Module):
 
         mask = torch.eq(gt_label,0) | torch.eq(gt_label, 1)
         valid_gt_label = torch.masked_select(gt_label, mask)
-        valid_pred_label = torch.masked_select(pred_label, mask)
+        mask = torch.stack([mask] * 2, dim=1)
+        valid_pred_label = torch.masked_select(pred_label, mask).reshape(-1, 2)
+
+        # compute log-softmax
+        valid_pred_label = torch.log(valid_pred_label)
+        
+        loss = self.loss_cls(valid_pred_label,valid_gt_label)
 
         pos_mask = torch.eq(valid_gt_label, 1)
         neg_mask = torch.eq(valid_gt_label, 0)
 
-        loss = self.loss_cls(valid_pred_label,valid_gt_label)
         neg_loss = loss.masked_select(neg_mask)
         pos_loss = loss.masked_select(pos_mask)
         
@@ -144,9 +159,10 @@ class PNet(_Net):
 
         # detection
         self.cls = nn.Sequential(
-            nn.Conv2d(32, 1, kernel_size=1, stride=1),
-            nn.Sigmoid()
+            nn.Conv2d(32, 2, kernel_size=1, stride=1),
+            nn.Softmax2d()
         )
+        self.softmax = nn.Softmax(1)
         # bounding box regresion
         self.box_offset = nn.Conv2d(32, 4, kernel_size=1, stride=1)
         # landmark regression
@@ -188,8 +204,8 @@ class RNet(_Net):
         )
         # detection
         self.cls = nn.Sequential(
-            nn.Linear(128, 1),
-            nn.Sigmoid()
+            nn.Linear(128, 2),
+            nn.Softmax(1)
         )
         # bounding box regression
         self.box_offset = nn.Linear(128, 4)
@@ -239,8 +255,8 @@ class ONet(_Net):
         )
         # detection
         self.cls = nn.Sequential(
-            nn.Linear(256, 1),
-            nn.Sigmoid()
+            nn.Linear(256, 2),
+            nn.Softmax(1)
         )
         # bounding box regression
         self.box_offset = nn.Linear(256, 4)
