@@ -179,7 +179,7 @@ class PNet(_Net):
         # detection
         self.cls = nn.Sequential(
             nn.Conv2d(32, 2, kernel_size=1, stride=1),
-            nn.Softmax2d()
+            nn.Softmax(1)
         )
         self.softmax = nn.Softmax(1)
         # bounding box regresion
