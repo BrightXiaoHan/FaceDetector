@@ -8,6 +8,25 @@ def weights_init(m):
         nn.init.constant(m.bias, 0.1)
 
 
+class Flatten(nn.Module):
+
+    def __init__(self):
+        super(Flatten, self).__init__()
+
+    def forward(self, x):
+        """
+        Arguments:
+            x: a float tensor with shape [batch_size, c, h, w].
+        Returns:
+            a float tensor with shape [batch_size, c*h*w].
+        """
+
+        # without this pretrained model isn't working
+        x = x.transpose(3, 2).contiguous()
+
+        return x.view(x.size(0), -1)
+
+
 class _Net(nn.Module):
     def __init__(self, cls_factor=1, box_factor=1, landmark_factor=1, is_train=False, device='cpu'):
         super(_Net, self).__init__()
@@ -195,7 +214,8 @@ class RNet(_Net):
             nn.PReLU(48),  # prelu2
             nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool2
             nn.Conv2d(48, 64, kernel_size=2, stride=1),  # conv3
-            nn.PReLU(64)  # prelu3
+            nn.PReLU(64),  # prelu3
+            Flatten()
         )
 
         self.fc = nn.Sequential(
@@ -215,7 +235,6 @@ class RNet(_Net):
     def forward(self, x):
         # backend
         x = self.body(x)
-        x = x.view(x.size(0), -1)
         x = self.fc(x)
 
         # detection
@@ -246,7 +265,8 @@ class ONet(_Net):
             nn.PReLU(64),  # prelu3
             nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),  # pool3
             nn.Conv2d(64, 128, kernel_size=2, stride=1),  # conv4
-            nn.PReLU(128)  # prelu4
+            nn.PReLU(128),  # prelu4
+            Flatten()
         )
 
         self.fc = nn.Sequential(
@@ -269,7 +289,6 @@ class ONet(_Net):
     def forward(self, x):
         # backend
         x = self.body(x)
-        x = x.view(x.size(0), -1)
         x = self.fc(x)
 
         # detection
