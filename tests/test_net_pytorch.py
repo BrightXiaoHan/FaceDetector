@@ -1,7 +1,7 @@
 import unittest
 import torch
 
-import mtcnn.network.matcnn_pytorch as mtcnn
+import mtcnn.network.mtcnn_pytorch as mtcnn
 
 class TestMtcnnPytorch(unittest.TestCase):
 
