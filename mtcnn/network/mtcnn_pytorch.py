@@ -149,12 +149,12 @@ class PNet(_Net):
         # backend
         self.body = nn.Sequential(
             nn.Conv2d(3, 10, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(),  # PReLU1
-            nn.MaxPool2d(kernel_size=2, stride=2),  # pool1
+            nn.PReLU(10),  # PReLU1
+            nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),  # pool1
             nn.Conv2d(10, 16, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(),  # PReLU2
+            nn.PReLU(16),  # PReLU2
             nn.Conv2d(16, 32, kernel_size=3, stride=1),  # conv3
-            nn.PReLU()  # PReLU3
+            nn.PReLU(32)  # PReLU3
         )
 
         # detection
@@ -189,18 +189,18 @@ class RNet(_Net):
         # backend
         self.body = nn.Sequential(
             nn.Conv2d(3, 28, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(),  # prelu1
-            nn.MaxPool2d(kernel_size=3, stride=2),  # pool1
+            nn.PReLU(28),  # prelu1
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool1
             nn.Conv2d(28, 48, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(),  # prelu2
-            nn.MaxPool2d(kernel_size=3, stride=2),  # pool2
+            nn.PReLU(48),  # prelu2
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool2
             nn.Conv2d(48, 64, kernel_size=2, stride=1),  # conv3
-            nn.PReLU()  # prelu3
+            nn.PReLU(64)  # prelu3
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(64*2*2, 128),
-            nn.PReLU()
+            nn.Linear(576, 128),
+            nn.PReLU(128)
         )
         # detection
         self.cls = nn.Sequential(
@@ -237,21 +237,22 @@ class ONet(_Net):
         # backend
         self.body = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(),  # prelu1
-            nn.MaxPool2d(kernel_size=3, stride=2),  # pool1
+            nn.PReLU(32),  # prelu1
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool1
             nn.Conv2d(32, 64, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(),  # prelu2
-            nn.MaxPool2d(kernel_size=3, stride=2),  # pool2
+            nn.PReLU(64),  # prelu2
+            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool2
             nn.Conv2d(64, 64, kernel_size=3, stride=1),  # conv3
-            nn.PReLU(),  # prelu3
-            nn.MaxPool2d(kernel_size=2, stride=2),  # pool3
+            nn.PReLU(64),  # prelu3
+            nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),  # pool3
             nn.Conv2d(64, 128, kernel_size=2, stride=1),  # conv4
-            nn.PReLU()  # prelu4
+            nn.PReLU(128)  # prelu4
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(128*2*2, 256),
-            nn.PReLU()
+            nn.Linear(1152, 256),
+            nn.Dropout(0.25),
+            nn.PReLU(256)
         )
         # detection
         self.cls = nn.Sequential(
