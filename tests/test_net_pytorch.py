@@ -1,7 +1,11 @@
+import os
 import unittest
 import torch
 
+import numpy as np
 import mtcnn.network.mtcnn_pytorch as mtcnn
+
+here = os.path.dirname(__file__)
 
 class TestMtcnnPytorch(unittest.TestCase):
 
@@ -37,6 +41,15 @@ class TestMtcnnPytorch(unittest.TestCase):
         self.assertEqual(list(landmarks.shape), [100, 10])
 
         onet.get_loss(data, torch.ones(100, dtype=torch.int64), torch.randn(100, 4), torch.randn(100, 10))
+
+    def test_load_caffe_model(self):
+        pnet = mtcnn.PNet()
+        rnet = mtcnn.RNet()
+        onet = mtcnn.ONet()
+        weight_folder = os.path.join(here, '../output/converted')
+        pnet.load_caffe_model(np.load(os.path.join(weight_folder, 'pnet.npy'))[()])
+        rnet.load_caffe_model(np.load(os.path.join(weight_folder, 'rnet.npy'))[()])
+        onet.load_caffe_model(np.load(os.path.join(weight_folder, 'onet.npy'))[()])
         
 if __name__ == "__main__":
     unittest.main()

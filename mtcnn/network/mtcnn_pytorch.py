@@ -195,7 +195,7 @@ class PNet(_Net):
             ('conv4-2', nn.Conv2d(32, 4, kernel_size=1, stride=1)),
         ]))
 
-        if self.is_train():
+        if self.is_train:
             # landmark regression
             self.landmarks = nn.Sequential(OrderedDict([
                 ('conv4-2', nn.Conv2d(32, 10, kernel_size=1, stride=1))
