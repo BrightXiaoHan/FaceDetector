@@ -157,6 +157,10 @@ class _Net(nn.Module):
         valid_pred_landmark = torch.masked_select(
             pred_landmark, mask).reshape(-1, 10)
         return self.loss_landmark(valid_pred_landmark, valid_gt_landmark)*self.land_factor
+    
+    def load_caffe_model(self, weights):
+        for n, p in self.named_parameters():
+            p.data = torch.FloatTensor(weights[n])
 
 
 class PNet(_Net):
@@ -189,16 +193,17 @@ class PNet(_Net):
             ('conv4-2', nn.Conv2d(32, 4, kernel_size=1, stride=1)),
         ]))
 
-        # landmark regression
-        self.landmarks = nn.Sequential(OrderedDict([
-            ('conv4-2', nn.Conv2d(32, 10, kernel_size=1, stride=1))
-        ]))
+        if self.is_train():
+            # landmark regression
+            self.landmarks = nn.Sequential(OrderedDict([
+                ('conv4-2', nn.Conv2d(32, 10, kernel_size=1, stride=1))
+            ]))
 
     def forward(self, x):
         feature_map = self.body(x)
         label = self.cls(feature_map)
         offset = self.box_offset(feature_map)
-        landmarks = self.landmarks(feature_map)
+        landmarks = self.landmarks(feature_map) if self.is_train else None
 
         return label, offset, landmarks
 
@@ -238,10 +243,12 @@ class RNet(_Net):
         self.box_offset = nn.Sequential(OrderedDict([
             ('conv5-2', nn.Linear(128, 4))
         ]))
-        # lanbmark localization
-        self.landmarks = nn.Sequential(OrderedDict([
-            ('conv5-3', nn.Linear(128, 10))
-        ]))
+
+        if self.is_train:
+            # lanbmark localization
+            self.landmarks = nn.Sequential(OrderedDict([
+                ('conv5-3', nn.Linear(128, 10))
+            ]))
 
     def forward(self, x):
         # backend
@@ -250,7 +257,7 @@ class RNet(_Net):
         # detection
         det = self.cls(x)
         box = self.box_offset(x)
-        landmarks = self.landmarks(x)
+        landmarks = self.landmarks(x) if self.is_train else None
 
         return det, box, landmarks
 
