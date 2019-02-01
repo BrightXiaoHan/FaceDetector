@@ -159,6 +159,8 @@ class _Net(nn.Module):
         return self.loss_landmark(valid_pred_landmark, valid_gt_landmark)*self.land_factor
     
     def load_caffe_model(self, weights):
+        if self.is_train:
+            raise AssertionError("This method is avaliable only when 'is_train' is false.")
         for n, p in self.named_parameters():
             p.data = torch.FloatTensor(weights[n])
 
