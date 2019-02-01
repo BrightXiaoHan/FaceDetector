@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from collections import OrderedDict
+
 
 def weights_init(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
@@ -61,12 +63,13 @@ class _Net(nn.Module):
             x {Tensor} -- Input normalized images. (Note here: rnet, onet only support fix size images.)
             gt_label {Tensor} -- Ground truth label.
             gt_boxes {Tensor} -- Ground truth boxes coordinate.
-        
+
         Returns:
             Tensor -- classification loss + box regression loss
         """
         if not self.is_train:
-            raise AssertionError("Method 'get_loss' is avaliable only when 'is_train' is True.")
+            raise AssertionError(
+                "Method 'get_loss' is avaliable only when 'is_train' is True.")
 
         # Forward pass
         pred_label, pred_offset, pred_landmarks = self.forward(x)
@@ -79,20 +82,21 @@ class _Net(nn.Module):
         # Compute the loss
         cls_loss = self.cls_loss(gt_label, pred_label)
         box_loss = self.box_loss(gt_label, gt_boxes, pred_offset)
-        landmark_loss = self.landmark_loss(gt_label, gt_landmarks, pred_landmarks)
+        landmark_loss = self.landmark_loss(
+            gt_label, gt_landmarks, pred_landmarks)
 
         return cls_loss + box_loss + landmark_loss
 
     def _init_net(self):
         raise NotImplementedError
-    
-    def cls_loss(self,gt_label,pred_label):
+
+    def cls_loss(self, gt_label, pred_label):
         """Classification loss 
-        
+
         Args:
             gt_label (Tensor): Pobability distribution with shape (batch_size, 2)
             pred_label (Tensor): Ground truth lables with shape (batch_size)
-        
+
         Returns:
             Tensor: Cross-Entropy loss multiply by cls_factor
         """
@@ -100,34 +104,32 @@ class _Net(nn.Module):
         pred_label = torch.squeeze(pred_label)
         gt_label = torch.squeeze(gt_label)
 
-
         # Online hard sample mining
 
-        mask = torch.eq(gt_label,0) | torch.eq(gt_label, 1)
+        mask = torch.eq(gt_label, 0) | torch.eq(gt_label, 1)
         valid_gt_label = torch.masked_select(gt_label, mask)
         mask = torch.stack([mask] * 2, dim=1)
         valid_pred_label = torch.masked_select(pred_label, mask).reshape(-1, 2)
 
         # compute log-softmax
         valid_pred_label = torch.log(valid_pred_label)
-        
-        loss = self.loss_cls(valid_pred_label,valid_gt_label)
+
+        loss = self.loss_cls(valid_pred_label, valid_gt_label)
 
         pos_mask = torch.eq(valid_gt_label, 1)
         neg_mask = torch.eq(valid_gt_label, 0)
 
         neg_loss = loss.masked_select(neg_mask)
         pos_loss = loss.masked_select(pos_mask)
-        
-        if neg_loss.shape[0] > pos_loss.shape[0]: 
+
+        if neg_loss.shape[0] > pos_loss.shape[0]:
             neg_loss, _ = neg_loss.topk(pos_loss.shape[0])
         loss = torch.cat([pos_loss, neg_loss])
         loss = torch.mean(loss)
 
         return loss * self.cls_factor
 
-
-    def box_loss(self,gt_label,gt_offset,pred_offset):
+    def box_loss(self, gt_label, gt_offset, pred_offset):
         pred_offset = torch.squeeze(pred_offset)
         gt_offset = torch.squeeze(gt_offset)
         gt_label = torch.squeeze(gt_label)
@@ -136,14 +138,13 @@ class _Net(nn.Module):
         # broadcast mask
         mask = torch.stack([mask] * 4, dim=1)
 
-
-        #only valid element can effect the loss
+        # only valid element can effect the loss
         valid_gt_offset = torch.masked_select(gt_offset, mask).reshape(-1, 4)
-        valid_pred_offset = torch.masked_select(pred_offset, mask).reshape(-1, 4)
-        return self.loss_box(valid_pred_offset,valid_gt_offset)*self.box_factor
+        valid_pred_offset = torch.masked_select(
+            pred_offset, mask).reshape(-1, 4)
+        return self.loss_box(valid_pred_offset, valid_gt_offset)*self.box_factor
 
-
-    def landmark_loss(self,gt_label,gt_landmark,pred_landmark):
+    def landmark_loss(self, gt_label, gt_landmark, pred_landmark):
         pred_landmark = torch.squeeze(pred_landmark)
         gt_landmark = torch.squeeze(gt_landmark)
         gt_label = torch.squeeze(gt_label)
@@ -151,9 +152,11 @@ class _Net(nn.Module):
         # broadcast mask
         mask = torch.stack([mask] * 10, dim=1)
 
-        valid_gt_landmark = torch.masked_select(gt_landmark, mask).reshape(-1, 10)
-        valid_pred_landmark = torch.masked_select(pred_landmark, mask).reshape(-1, 10)
-        return self.loss_landmark(valid_pred_landmark,valid_gt_landmark)*self.land_factor
+        valid_gt_landmark = torch.masked_select(
+            gt_landmark, mask).reshape(-1, 10)
+        valid_pred_landmark = torch.masked_select(
+            pred_landmark, mask).reshape(-1, 10)
+        return self.loss_landmark(valid_pred_landmark, valid_gt_landmark)*self.land_factor
 
 
 class PNet(_Net):
@@ -166,27 +169,30 @@ class PNet(_Net):
     def _init_net(self):
 
         # backend
-        self.body = nn.Sequential(
-            nn.Conv2d(3, 10, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(10),  # PReLU1
-            nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),  # pool1
-            nn.Conv2d(10, 16, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(16),  # PReLU2
-            nn.Conv2d(16, 32, kernel_size=3, stride=1),  # conv3
-            nn.PReLU(32)  # PReLU3
-        )
+        self.body = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(3, 10, kernel_size=3, stride=1)),
+            ('prelu1', nn.PReLU(10)),
+            ('pool1', nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)),
+            ('conv2', nn.Conv2d(10, 16, 3, 1)),
+            ('prelu2', nn.PReLU(16)),
+            ('conv3', nn.Conv2d(16, 32, kernel_size=3, stride=1)),
+            ('prelu3', nn.PReLU(32))
+        ]))
 
         # detection
-        self.cls = nn.Sequential(
-            nn.Conv2d(32, 2, kernel_size=1, stride=1),
-            nn.Softmax(1)
-        )
-        self.softmax = nn.Softmax(1)
+        self.cls = nn.Sequential(OrderedDict([
+            ('conv4-1', nn.Conv2d(32, 2, kernel_size=1, stride=1)),
+            ('softmax', nn.Softmax(1))
+        ]))
         # bounding box regresion
-        self.box_offset = nn.Conv2d(32, 4, kernel_size=1, stride=1)
-        # landmark regression
-        self.landmarks = nn.Conv2d(32, 10, kernel_size=1, stride=1)
+        self.box_offset = nn.Sequential(OrderedDict([
+            ('conv4-2', nn.Conv2d(32, 4, kernel_size=1, stride=1)),
+        ]))
 
+        # landmark regression
+        self.landmarks = nn.Sequential(OrderedDict([
+            ('conv4-2', nn.Conv2d(32, 10, kernel_size=1, stride=1))
+        ]))
 
     def forward(self, x):
         feature_map = self.body(x)
@@ -205,37 +211,41 @@ class RNet(_Net):
         super(RNet, self).__init__(*param, **kwargs)
 
     def _init_net(self):
-        # backend
-        self.body = nn.Sequential(
-            nn.Conv2d(3, 28, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(28),  # prelu1
-            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool1
-            nn.Conv2d(28, 48, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(48),  # prelu2
-            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool2
-            nn.Conv2d(48, 64, kernel_size=2, stride=1),  # conv3
-            nn.PReLU(64),  # prelu3
-            Flatten()
-        )
 
-        self.fc = nn.Sequential(
-            nn.Linear(576, 128),
-            nn.PReLU(128)
-        )
+        self.body = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(3, 28, kernel_size=3, stride=1)),
+            ('prelu1', nn.PReLU(28)),
+            ('pool1', nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)),
+
+            ('conv2', nn.Conv2d(28, 48, kernel_size=3, stride=1)),
+            ('prelu2', nn.PReLU(48)),
+            ('pool2', nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)),
+
+            ('conv3', nn.Conv2d(48, 64, kernel_size=2, stride=1)),
+            ('prelu3', nn.PReLU(64)),
+
+            ('flatten', Flatten()),
+            ('conv4', nn.Linear(576, 128)),
+            ('prelu4', nn.PReLU(128))
+        ]))
+
         # detection
-        self.cls = nn.Sequential(
-            nn.Linear(128, 2),
-            nn.Softmax(1)
-        )
+        self.cls = nn.Sequential(OrderedDict([
+            ('conv5-1', nn.Linear(128, 2)),
+            ('softmax', nn.Softmax(1))
+        ]))
         # bounding box regression
-        self.box_offset = nn.Linear(128, 4)
+        self.box_offset = nn.Sequential(OrderedDict([
+            ('conv5-2', nn.Linear(128, 4))
+        ]))
         # lanbmark localization
-        self.landmarks = nn.Linear(128, 10)
+        self.landmarks = nn.Sequential(OrderedDict([
+            ('conv5-3', nn.Linear(128, 10))
+        ]))
 
     def forward(self, x):
         # backend
         x = self.body(x)
-        x = self.fc(x)
 
         # detection
         det = self.cls(x)
@@ -254,42 +264,46 @@ class ONet(_Net):
 
     def _init_net(self):
         # backend
-        self.body = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1),  # conv1
-            nn.PReLU(32),  # prelu1
-            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool1
-            nn.Conv2d(32, 64, kernel_size=3, stride=1),  # conv2
-            nn.PReLU(64),  # prelu2
-            nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True),  # pool2
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),  # conv3
-            nn.PReLU(64),  # prelu3
-            nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True),  # pool3
-            nn.Conv2d(64, 128, kernel_size=2, stride=1),  # conv4
-            nn.PReLU(128),  # prelu4
-            Flatten()
-        )
+        
+        self.body = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(3, 32, kernel_size=3, stride=1)),
+            ('prelu1', nn.PReLU(32)),
+            ('pool1', nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)),
 
-        self.fc = nn.Sequential(
-            nn.Linear(1152, 256),
-            nn.Dropout(0.25),
-            nn.PReLU(256)
-        )
+            ('conv2', nn.Conv2d(32, 64, kernel_size=3, stride=1)),
+            ('prelu2', nn.PReLU(64)),
+            ('pool2', nn.MaxPool2d(kernel_size=3, stride=2, ceil_mode=True)),
+
+            ('conv3', nn.Conv2d(64, 64, kernel_size=3, stride=1)),
+            ('prelu3', nn.PReLU(64)),
+            ('pool3', nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)),
+
+            ('conv4', nn.Conv2d(64, 128, kernel_size=2, stride=1)),
+            ('prelu4', nn.PReLU(128)),
+
+            ('flatten', Flatten()),
+            ('conv5', nn.Linear(1152, 256)),
+            ('drop5', nn.Dropout(0.25)),
+            ('prelu5', nn.PReLU(256)),
+        ]))
+
         # detection
-        self.cls = nn.Sequential(
-            nn.Linear(256, 2),
-            nn.Softmax(1)
-        )
+        self.cls = nn.Sequential(OrderedDict([
+            ('conv6-1', nn.Linear(256, 2)),
+            ('softmax', nn.Softmax(1))
+        ]))
         # bounding box regression
-        self.box_offset = nn.Linear(256, 4)
+        self.box_offset = nn.Sequential(OrderedDict([
+            ('conv6-2', nn.Linear(256, 4))
+        ])) 
         # lanbmark localization
-        self.landmarks = nn.Linear(256, 10)
-        # weight initiation weih xavier
-        self.apply(weights_init)
+        self.landmarks = nn.Sequential(OrderedDict([
+            ('conv6-3', nn.Linear(256, 10))
+        ])) 
 
     def forward(self, x):
         # backend
         x = self.body(x)
-        x = self.fc(x)
 
         # detection
         det = self.cls(x)
@@ -301,5 +315,3 @@ class ONet(_Net):
         landmarks = self.landmarks(x)
 
         return det, box, landmarks
-
-

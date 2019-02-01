@@ -22,9 +22,6 @@ def get_all_weights(net):
         if 'conv' in p:
             name = 'features.' + p
             if '-' in p:
-                s = list(p)
-                s[-2] = '_'
-                s = ''.join(s)
                 all_weights[s + '.weight'] = net.params[p][0].data
                 all_weights[s + '.bias'] = net.params[p][1].data
             elif len(net.params[p][0].data.shape) == 4:
