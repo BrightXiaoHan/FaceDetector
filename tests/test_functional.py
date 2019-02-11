@@ -3,12 +3,14 @@ Test Cases mtcnn.utils.functional
 """
 
 import os
+import torch
 import sys
 import unittest
 import cv2
 import numpy as np
 
 import mtcnn.utils.functional as func
+import mtcnn.utils.func_pytorch as torch_func
 
 here = os.path.dirname(__file__)
 
@@ -53,6 +55,33 @@ class TestFunctional(unittest.TestCase):
 
             # perform non-maximum suppression on the bounding boxes
             pick = func.nms(boundingBoxes, 0.3)
+            print("[x] after applying non-maximum, %d bounding boxes" % (len(pick)))
+
+            # loop over the picked bounding boxes and draw them
+            for i in pick:
+                (startX, startY, endX, endY) = boundingBoxes[i][:4]
+                cv2.rectangle(image, (startX, startY), (endX, endY), (0, 255, 0), 2)
+
+            # # display the images
+            # cv2.imshow("Original", orig)
+            # cv2.imshow("After NMS", image)
+            # cv2.waitKey(0)
+            self.assertEqual(len(pick), num_face)
+
+    def test_nms_torch(self):
+        # loop over the images
+        for (imagePath, boundingBoxes, num_face) in self.images:
+            # load the image and clone it
+            print("[x] %d initial bounding boxes" % (len(boundingBoxes)))
+            image = cv2.imread(imagePath)
+            orig = image.copy()
+
+            # loop over the bounding boxes for each image and draw them
+            for (startX, startY, endX, endY, _) in boundingBoxes:
+                cv2.rectangle(orig, (startX, startY), (endX, endY), (0, 0, 255), 2)
+
+            # perform non-maximum suppression on the bounding boxes
+            pick = torch_func.nms(torch.LongTensor(boundingBoxes[:, :4]), torch.Tensor(boundingBoxes[:, 4]), 0.3)
             print("[x] after applying non-maximum, %d bounding boxes" % (len(pick)))
 
             # loop over the picked bounding boxes and draw them
