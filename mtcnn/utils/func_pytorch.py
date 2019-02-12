@@ -49,6 +49,8 @@ def nms(dets, scores, thresh, mode="Union"):
 
         order = order[ovr <= thresh]
 
+    keep = torch.stack(keep)
+
     return keep
 
 def imnormalize(img):

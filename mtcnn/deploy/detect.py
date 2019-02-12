@@ -36,45 +36,46 @@ class FaceDetector(object):
 
         return stage_three_boxes, landmarks
         
-    def _generate_boxes(self, w, h, stride=2):
+    def _generate_boxes(self, w, h, scale, stride=2):
         x1, y1, x2, y2 = 0, 0, 12, 12
         boxes = []
         while x2 <= w:
+            x_dim = []
             while y2 <= h:
-                boxes.append((x1, y1, x2, y2))
+                x_dim.append((x1, y1, x2, y2))
                 y2 += stride
                 y1 += stride
+            boxes.append(x_dim)
             x1 += stride
             x2 += stride
-        boxes = torch.LongTensor(boxes).to(self.device)
+            y1, y2 = 12, 12
+        boxes = torch.FloatTensor(boxes).to(self.device)
+        boxes = boxes / scale
         return boxes
 
     @staticmethod
-    def _filter_boxes(boxes, p_distribution, box_regs, threshold, landmarks=None):
+    def _filter_boxes(boxes, p_distribution, box_regs, threshold, minsize, landmarks=None):
         scores = p_distribution[:, 1]
-
-        # Select positive example
-        mask = (scores >= threshold)
-        boxes = boxes[mask]
-        box_regs = box_regs[mask]
-        scores = scores[mask]
 
         # Compute actually coordinate
         final_boxes = boxes - (box_regs * 12)
+
+        # Select positive example
+        mask_threshold = (scores >= threshold)
 
         # Set value zero for negative value
         final_boxes[final_boxes < 0] = 0
 
         # filter boxes that x2 <= x1 or y2 <= y1
-        mask_x2gtx1 = final_boxes[:, 2] > final_boxes[:, 0]
-        mask_y2gtx1 = final_boxes[:, 3] > final_boxes[:, 1]
-        mask_error = (mask_x2gtx1 + mask_y2gtx1) == 0
+        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] > minsize
+        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] > minsize
+        mask = (mask_x2gtx1 + mask_y2gtx1 + mask_threshold) > 2
 
-        candidate = final_boxes[mask_error]
-        scores = scores[mask_error]
+        candidate = final_boxes[mask]
+        scores = scores[mask]
 
         if landmarks is not None:
-            landmarks = landmarks[mask][mask_error]
+            landmarks = landmarks[mask]
             return candidate, scores, landmarks
 
         return candidate, scores
@@ -87,11 +88,15 @@ class FaceDetector(object):
         scales = []
         cur_width = width
         cur_height = height
-        cur_factor = factor
+        cur_factor = 1
         while cur_width >= minsize and cur_height >= minsize:
-            scales.append((cur_width, cur_height, cur_factor))
-            cur_width *= factor
-            cur_height *= factor
+            # ensure width and height are even
+            w = cur_width if cur_width % 2 == 0 else cur_width + 1
+            h = cur_height if cur_height % 2 == 0 else cur_height + 1
+            scales.append((w, h, cur_factor))
+
+            cur_width = int(cur_width * factor)
+            cur_height = int(cur_height * factor)
             factor *= factor
 
         candidate_boxes = torch.empty((0, 4), dtype=torch.int64)
@@ -99,13 +104,17 @@ class FaceDetector(object):
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(
                 img, size=(w, h), mode='bilinear')
-            boxes = self._generate_boxes(w, h)
+            boxes = self._generate_boxes(w, h, f)
             p_distribution, box_regs, _ = self.pnet(resize_img)
 
-            candidate, scores = self._filter_boxes(
-                boxes, p_distribution, box_regs, threshold)
+            boxes = boxes.view((4, -1)).transpose(0, 1)
+            p_distribution = p_distribution.view((2, -1)).transpose(0, 1)
+            box_regs = box_regs.view((4, -1)).transpose(0, 1)
 
-            candidate = torch.ceil(candidate.float()/f).int()
+            candidate, scores = self._filter_boxes(
+                boxes, p_distribution, box_regs, threshold, minsize)
+
+            candidate = torch.ceil(candidate).long()
 
             candidate_boxes = torch.cat([candidate_boxes, candidate])
             candidate_scores = torch.cat([candidate_scores, scores])
@@ -124,7 +133,7 @@ class FaceDetector(object):
         candidate_faces = torch.empty((0, 3, 24, 24))
 
         for box in boxes:
-            im = img[:, :, box[0]: box[2], box[1], box[3]]
+            im = img[:, :, box[0]: box[2], box[1]: box[3]]
             im = torch.nn.functional.interpolate(
                 im, size=(24, 24), mode='bilinear')
             candidate_faces = torch.cat([candidate_faces, im])
@@ -147,7 +156,7 @@ class FaceDetector(object):
         candidate_faces = torch.empty((0, 3, 48, 48))
 
         for box in boxes:
-            im = img[:, :, box[0]: box[2], box[1], box[3]]
+            im = img[:, :, box[0]: box[2], box[1]: box[3]]
             im = torch.nn.functional.interpolate(
                 im, size=(48, 48), mode='bilinear')
             candidate_faces = torch.cat([candidate_faces, im])
