@@ -20,6 +20,8 @@ class FaceDetector(object):
         if isinstance(img, str):
             img = cv2.imread(img)
 
+        # Convert image from rgb to bgr for Compatible with original caffe model.
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img = img.transpose(2, 0, 1)
         img = torch.FloatTensor(img)  
         img = func.imnormalize(img)
@@ -48,7 +50,7 @@ class FaceDetector(object):
             boxes.append(x_dim)
             x1 += stride
             x2 += stride
-            y1, y2 = 12, 12
+            y1, y2 = 0, 12
         boxes = torch.FloatTensor(boxes).to(self.device)
         boxes = boxes / scale
         return boxes
@@ -58,7 +60,7 @@ class FaceDetector(object):
         scores = p_distribution[:, 1]
 
         # Compute actually coordinate
-        final_boxes = boxes - (box_regs * 12)
+        final_boxes = boxes
 
         # Select positive example
         mask_threshold = (scores >= threshold)
@@ -67,9 +69,9 @@ class FaceDetector(object):
         final_boxes[final_boxes < 0] = 0
 
         # filter boxes that x2 <= x1 or y2 <= y1
-        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] > minsize
-        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] > minsize
-        mask = (mask_x2gtx1 + mask_y2gtx1 + mask_threshold) > 2
+        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] >= minsize
+        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] >= minsize
+        mask = (mask_x2gtx1 + mask_y2gtx1 + mask_threshold) >= 2
 
         candidate = final_boxes[mask]
         scores = scores[mask]
@@ -107,7 +109,7 @@ class FaceDetector(object):
             boxes = self._generate_boxes(w, h, f)
             p_distribution, box_regs, _ = self.pnet(resize_img)
 
-            boxes = boxes.view((4, -1)).transpose(0, 1)
+            boxes = boxes.permute(2, 0, 1).view((4, -1)).transpose(0, 1)
             p_distribution = p_distribution.view((2, -1)).transpose(0, 1)
             box_regs = box_regs.view((4, -1)).transpose(0, 1)
 
