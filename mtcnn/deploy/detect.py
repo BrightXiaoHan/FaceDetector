@@ -7,11 +7,12 @@ import mtcnn.utils.func_pytorch as func
 
 class FaceDetector(object):
 
-    def __init__(self, pnet, onet, rnet, device='cpu'):
+    def __init__(self, pnet, rnet, onet, device='cpu'):
         self.pnet = pnet
         self.rnet = rnet
         self.onet = onet
 
+        self.onet.eval()  # Onet has dropout layer.
         self.device = torch.device(device)
         [net.to(device) for net in [pnet, rnet, onet]]
 
@@ -95,32 +96,6 @@ class FaceDetector(object):
         bounding_boxes = torch.round(bounding_boxes / scale).long()
         return bounding_boxes, score, offsets
 
-    @staticmethod
-    def _filter_boxes(boxes, p_distribution, box_regs, threshold, minsize, landmarks=None):
-        scores = p_distribution[:, 1]
-
-        # Compute actually coordinate
-        final_boxes = boxes
-
-        # Select positive example
-        mask_threshold = (scores >= threshold)
-
-        # Set value zero for negative value
-        final_boxes[final_boxes < 0] = 0
-
-        # filter boxes that x2 <= x1 or y2 <= y1
-        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] >= minsize - 1
-        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] >= minsize - 1
-        mask = (mask_x2gtx1 + mask_y2gtx1 + mask_threshold) >= 2
-
-        candidate = final_boxes[mask]
-        scores = scores[mask]
-
-        if landmarks is not None:
-            landmarks = landmarks[mask]
-            return candidate, scores, landmarks
-
-        return candidate, scores
 
     def stage_one(self, img, threshold, factor, minsize):
         width = img.shape[2]
@@ -133,8 +108,8 @@ class FaceDetector(object):
         cur_factor = 1
         while cur_width >= minsize and cur_height >= minsize:
             # ensure width and height are even
-            w = cur_width if cur_width % 2 == 0 else cur_width + 1
-            h = cur_height if cur_height % 2 == 0 else cur_height + 1
+            w = cur_width
+            h = cur_height
             scales.append((w, h, cur_factor))
 
             cur_factor *= factor
@@ -168,6 +143,9 @@ class FaceDetector(object):
         if boxes.shape[0] == 0:
             return boxes
 
+        width = img.shape[2]
+        height = img.shape[3]
+
         # get candidate faces
         candidate_faces = torch.empty((0, 3, 24, 24))
 
@@ -177,10 +155,22 @@ class FaceDetector(object):
                 im, size=(24, 24), mode='bilinear')
             candidate_faces = torch.cat([candidate_faces, im])
 
-        p_distribution, box_regs = self.rnet(candidate_faces)
+        # rnet forward pass
+        p_distribution, box_regs, _ = self.rnet(candidate_faces)
 
-        candidate, scores, _ = self._filter_boxes(
-            boxes, p_distribution, box_regs, threshold)
+        # filter negative boxes
+        scores = p_distribution[:, 1]
+        mask = (scores >= threshold)
+        boxes = boxes[mask]
+        box_regs = box_regs[mask]
+
+        # compute offsets
+        w = boxes[:, 2] - boxes[:, 0]
+        h = boxes[:, 3] - boxes[:, 1]
+        weights = torch.stack([w, h, w, h])
+
+        offsets = box_regs * weights
+        candidate = boxes + offsets
 
         # nms
         keep = func.nms(candidate, scores, 0.3)
