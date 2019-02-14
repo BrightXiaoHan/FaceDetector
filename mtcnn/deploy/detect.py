@@ -1,3 +1,4 @@
+import math
 import cv2
 import torch
 
@@ -11,11 +12,10 @@ class FaceDetector(object):
         self.rnet = rnet
         self.onet = onet
 
-        self.device = device
+        self.device = torch.device(device)
         [net.to(device) for net in [pnet, rnet, onet]]
 
-    @staticmethod
-    def _preprocess(img):
+    def _preprocess(self, img):
 
         if isinstance(img, str):
             img = cv2.imread(img)
@@ -23,7 +23,7 @@ class FaceDetector(object):
         # Convert image from rgb to bgr for Compatible with original caffe model.
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img = img.transpose(2, 0, 1)
-        img = torch.FloatTensor(img)  
+        img = torch.FloatTensor(img, device=self.device)
         img = func.imnormalize(img)
         img = img.unsqueeze(0)
 
@@ -34,26 +34,66 @@ class FaceDetector(object):
         img = self._preprocess(img)
         stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize)
         stage_two_boxes = self.stage_two(img, stage_one_boxes, threshold[1])
-        stage_three_boxes, landmarks = self.stage_three(img, stage_two_boxes, threshold[2])
+        stage_three_boxes, landmarks = self.stage_three(
+            img, stage_two_boxes, threshold[2])
 
         return stage_three_boxes, landmarks
-        
-    def _generate_boxes(self, w, h, scale, stride=2):
-        x1, y1, x2, y2 = 0, 0, 12, 12
-        boxes = []
-        while x2 <= w:
-            x_dim = []
-            while y2 <= h:
-                x_dim.append((x1, y1, x2, y2))
-                y2 += stride
-                y1 += stride
-            boxes.append(x_dim)
-            x1 += stride
-            x2 += stride
-            y1, y2 = 0, 12
-        boxes = torch.FloatTensor(boxes).to(self.device)
-        boxes = boxes / scale
-        return boxes
+
+    def _generate_bboxes(self, probs, offsets, scale, threshold):
+        """Generate bounding boxes at places
+        where there is probably a face.
+
+        Arguments:
+            probs: a FloatTensor of shape [1, 2, n, m].
+            offsets: a FloatTensor array of shape [1, 4, n, m].
+            scale: a float number,
+                width and height of the image were scaled by this number.
+            threshold: a float number.
+
+        Returns:
+            boxes: LongTensor with shape [x, 4].
+            score: FloatTensor with shape [x].
+        """
+
+        # applying P-Net is equivalent, in some sense, to
+        # moving 12x12 window with stride 2
+        stride = 2
+        cell_size = 12
+
+        # extract positive probability and resize it as [n, m] dim tensor.
+        probs = probs[0, 1, :, :]
+
+        # indices of boxes where there is probably a face
+        inds = (probs > threshold).nonzero()
+
+        if inds.shape[0] == 0:
+            return torch.empty((0, 4), dtype=torch.int64, device=self.device), torch.empty(0, dtype=torch.float32, device=self.device), torch.empty((0, 4), dtype=torch.float32, device=self.device)
+
+        # transformations of bounding boxes
+        tx1, ty1, tx2, ty2 = [offsets[0, i, inds[:, 0], inds[:, 1]]
+                              for i in range(4)]
+        # they are defined as:
+        # w = x2 - x1 + 1
+        # h = y2 - y1 + 1
+        # x1_true = x1 + tx1*w
+        # x2_true = x2 + tx2*w
+        # y1_true = y1 + ty1*h
+        # y2_true = y2 + ty2*h
+
+        offsets = torch.cat([tx1, ty1, tx2, ty2], 0)
+        score = probs[inds[:, 0], inds[:, 1]]
+
+        # P-Net is applied to scaled images
+        # so we need to rescale bounding boxes back
+        bounding_boxes = torch.stack([
+            stride*inds[:, 1] + 1.0,
+            stride*inds[:, 0] + 1.0,
+            stride*inds[:, 1] + 1.0 + cell_size,
+            (stride*inds[:, 0] + 1.0 + cell_size),
+        ], 0).transpose(0, 1).float()
+
+        bounding_boxes = torch.round(bounding_boxes / scale).long()
+        return bounding_boxes, score, offsets
 
     @staticmethod
     def _filter_boxes(boxes, p_distribution, box_regs, threshold, minsize, landmarks=None):
@@ -69,8 +109,8 @@ class FaceDetector(object):
         final_boxes[final_boxes < 0] = 0
 
         # filter boxes that x2 <= x1 or y2 <= y1
-        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] >= minsize
-        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] >= minsize
+        mask_x2gtx1 = final_boxes[:, 2] - final_boxes[:, 0] >= minsize - 1
+        mask_y2gtx1 = final_boxes[:, 3] - final_boxes[:, 1] >= minsize - 1
         mask = (mask_x2gtx1 + mask_y2gtx1 + mask_threshold) >= 2
 
         candidate = final_boxes[mask]
@@ -97,33 +137,30 @@ class FaceDetector(object):
             h = cur_height if cur_height % 2 == 0 else cur_height + 1
             scales.append((w, h, cur_factor))
 
-            cur_width = int(cur_width * factor)
-            cur_height = int(cur_height * factor)
-            factor *= factor
+            cur_factor *= factor
+            cur_width = math.ceil(cur_width * factor)
+            cur_height = math.ceil(cur_height * factor)
 
+        # Get candidate boxesi ph
         candidate_boxes = torch.empty((0, 4), dtype=torch.int64)
         candidate_scores = torch.empty((0))
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(
                 img, size=(w, h), mode='bilinear')
-            boxes = self._generate_boxes(w, h, f)
             p_distribution, box_regs, _ = self.pnet(resize_img)
 
-            boxes = boxes.permute(2, 0, 1).view((4, -1)).transpose(0, 1)
-            p_distribution = p_distribution.view((2, -1)).transpose(0, 1)
-            box_regs = box_regs.view((4, -1)).transpose(0, 1)
-
-            candidate, scores = self._filter_boxes(
-                boxes, p_distribution, box_regs, threshold, minsize)
-
-            candidate = torch.ceil(candidate).long()
+            candidate, scores, _ = self._generate_bboxes(
+                p_distribution, box_regs, f, threshold)
 
             candidate_boxes = torch.cat([candidate_boxes, candidate])
             candidate_scores = torch.cat([candidate_scores, scores])
 
         # nms
-        keep = func.nms(candidate_boxes, candidate_scores, 0.3)
-        return candidate_boxes[keep]
+        if candidate_boxes.shape[0] != 0:
+            keep = func.nms(candidate_boxes, candidate_scores, 0.3)
+            return candidate_boxes[keep]
+        else:
+            return candidate_boxes
 
     def stage_two(self, img, boxes, threshold):
 
