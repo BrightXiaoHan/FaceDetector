@@ -1,6 +1,7 @@
 import math
 import cv2
 import torch
+import time
 
 import mtcnn.utils.func_pytorch as func
 
@@ -69,7 +70,7 @@ class FaceDetector(object):
         inds = (probs > threshold).nonzero()
 
         if inds.shape[0] == 0:
-            return torch.empty((0, 4), dtype=torch.int64, device=self.device), torch.empty(0, dtype=torch.float32, device=self.device), torch.empty((0, 4), dtype=torch.float32, device=self.device)
+            return torch.empty((0, 4), dtype=torch.int32, device=self.device), torch.empty(0, dtype=torch.float32, device=self.device), torch.empty((0, 4), dtype=torch.float32, device=self.device)
 
         # transformations of bounding boxes
         tx1, ty1, tx2, ty2 = [offsets[0, i, inds[:, 0], inds[:, 1]]
@@ -94,7 +95,7 @@ class FaceDetector(object):
             (stride*inds[:, 0] + 1.0 + cell_size),
         ], 0).transpose(0, 1).float()
 
-        bounding_boxes = torch.round(bounding_boxes / scale).long()
+        bounding_boxes = torch.round(bounding_boxes / scale).int()
         return bounding_boxes, score, offsets
 
 
@@ -118,7 +119,7 @@ class FaceDetector(object):
             cur_height = math.ceil(cur_height * factor)
 
         # Get candidate boxesi ph
-        candidate_boxes = torch.empty((0, 4), dtype=torch.int64, device=self.device)
+        candidate_boxes = torch.empty((0, 4), dtype=torch.int32, device=self.device)
         candidate_scores = torch.empty((0), device=self.device)
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(

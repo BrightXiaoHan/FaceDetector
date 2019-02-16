@@ -18,7 +18,7 @@ class TestMtcnnPytorch(unittest.TestCase):
         self.assertEqual(list(box.shape), [100, 4, 1, 1])
         self.assertEqual(list(landmarks.shape), [100, 10, 1, 1])
 
-        pnet.get_loss(data, torch.randint(-1, 3, (100, ), dtype=torch.int64), torch.randn(100, 4), torch.randn(100, 10))
+        pnet.get_loss(data, torch.randint(-1, 3, (100, ), dtype=torch.int32), torch.randn(100, 4), torch.randn(100, 10))
 
     def test_rnet(self):
         rnet = mtcnn.RNet(is_train=True)
@@ -29,7 +29,7 @@ class TestMtcnnPytorch(unittest.TestCase):
         self.assertEqual(list(box.shape), [100, 4])
         self.assertEqual(list(landmarks.shape), [100, 10])
 
-        rnet.get_loss(data, torch.ones(100, dtype=torch.int64), torch.randn(100, 4), torch.randn(100, 10))
+        rnet.get_loss(data, torch.ones(100, dtype=torch.int32), torch.randn(100, 4), torch.randn(100, 10))
 
     def test_onet(self):
         onet = mtcnn.ONet(is_train=True)
@@ -40,7 +40,7 @@ class TestMtcnnPytorch(unittest.TestCase):
         self.assertEqual(list(box.shape), [100, 4])
         self.assertEqual(list(landmarks.shape), [100, 10])
 
-        onet.get_loss(data, torch.ones(100, dtype=torch.int64), torch.randn(100, 4), torch.randn(100, 10))
+        onet.get_loss(data, torch.ones(100, dtype=torch.int32), torch.randn(100, 4), torch.randn(100, 10))
 
     def test_load_caffe_model(self):
         pnet = mtcnn.PNet()
