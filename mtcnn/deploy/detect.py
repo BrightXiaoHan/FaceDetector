@@ -8,13 +8,14 @@ import mtcnn.utils.func_pytorch as func
 class FaceDetector(object):
 
     def __init__(self, pnet, rnet, onet, device='cpu'):
-        self.pnet = pnet
-        self.rnet = rnet
-        self.onet = onet
+        
+        self.device = torch.device(device)
+        
+        self.pnet = pnet.to(self.device)
+        self.rnet = rnet.to(self.device)
+        self.onet = onet.to(self.device)
 
         self.onet.eval()  # Onet has dropout layer.
-        self.device = torch.device(device)
-        [net.to(device) for net in [pnet, rnet, onet]]
 
     def _preprocess(self, img):
 
@@ -24,7 +25,7 @@ class FaceDetector(object):
         # Convert image from rgb to bgr for Compatible with original caffe model.
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         img = img.transpose(2, 0, 1)
-        img = torch.FloatTensor(img, device=self.device)
+        img = torch.FloatTensor(img).to(self.device)
         img = func.imnormalize(img)
         img = img.unsqueeze(0)
 
@@ -117,8 +118,8 @@ class FaceDetector(object):
             cur_height = math.ceil(cur_height * factor)
 
         # Get candidate boxesi ph
-        candidate_boxes = torch.empty((0, 4), dtype=torch.int64)
-        candidate_scores = torch.empty((0))
+        candidate_boxes = torch.empty((0, 4), dtype=torch.int64, device=self.device)
+        candidate_scores = torch.empty((0), device=self.device)
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(
                 img, size=(w, h), mode='bilinear')

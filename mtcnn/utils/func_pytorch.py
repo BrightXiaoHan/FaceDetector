@@ -25,6 +25,7 @@ def nms(dets, scores, thresh, mode="Union"):
     x2 = dets[:, 2]
     y2 = dets[:, 3]
 
+    device = dets.device
 
     areas = (x2 - x1 + 1) * (y2 - y1 + 1)
     _, order = torch.sort(scores)
@@ -39,8 +40,8 @@ def nms(dets, scores, thresh, mode="Union"):
         xx2 = torch.min(x2[i], x2[order])
         yy2 = torch.min(y2[i], y2[order])
 
-        w = torch.max(torch.zeros(1, dtype=torch.int64), xx2 - xx1 + 1)
-        h = torch.max(torch.zeros(1, dtype=torch.int64), yy2 - yy1 + 1)
+        w = torch.max(torch.zeros(1, dtype=torch.int64, device=device), xx2 - xx1 + 1)
+        h = torch.max(torch.zeros(1, dtype=torch.int64, device=device), yy2 - yy1 + 1)
         inter = w * h
         if mode == "Union":
             ovr = inter.float() / (areas[i] + areas[order] - inter).float()

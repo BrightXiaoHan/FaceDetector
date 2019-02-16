@@ -34,7 +34,7 @@ class _Net(nn.Module):
         super(_Net, self).__init__()
 
         self.is_train = is_train
-        self.device = device
+        self.device = torch.device(device)
 
         self._init_net()
 
@@ -51,7 +51,7 @@ class _Net(nn.Module):
         self.apply(weights_init)
 
         # Move tensor to target device
-        self.to(device)
+        self.to(self.device)
 
         if not self.is_train:
             self.eval()
@@ -162,7 +162,7 @@ class _Net(nn.Module):
         if self.is_train:
             raise AssertionError("This method is avaliable only when 'is_train' is false.")
         for n, p in self.named_parameters():
-            p.data = torch.FloatTensor(weights[n])
+            p.data = torch.FloatTensor(weights[n], device=self.device)
 
 
 class PNet(_Net):
