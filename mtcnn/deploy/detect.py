@@ -98,6 +98,19 @@ class FaceDetector(object):
         bounding_boxes = torch.round(bounding_boxes / scale).int()
         return bounding_boxes, score, offsets
 
+    def calibrate_box(bboxes, offsets):
+        """Transform bounding boxes to be more like true bounding boxes.
+        'offsets' is one of the outputs of the nets.
+
+        Arguments:
+            bboxes: a float numpy array of shape [n, 5].
+            offsets: a float numpy array of shape [n, 4].
+
+        Returns:
+            a float numpy array of shape [n, 5].
+        """
+        pass
+
 
     def stage_one(self, img, threshold, factor, minsize):
         width = img.shape[2]
