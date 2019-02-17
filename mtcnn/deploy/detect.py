@@ -3,7 +3,16 @@ import cv2
 import torch
 import time
 
-import mtcnn.utils.func_pytorch as func
+import mtcnn.utils.functional as func
+
+def _no_grad(func):
+
+    def wrapper(*args, **kwargs):
+        with torch.no_grad():
+            ret = func(*args, **kwargs)
+        return ret
+
+    return wrapper
 
 
 class FaceDetector(object):
@@ -111,7 +120,7 @@ class FaceDetector(object):
         """
         pass
 
-
+    @_no_grad
     def stage_one(self, img, threshold, factor, minsize):
         width = img.shape[2]
         height = img.shape[3]
@@ -147,11 +156,12 @@ class FaceDetector(object):
 
         # nms
         if candidate_boxes.shape[0] != 0:
-            keep = func.nms(candidate_boxes, candidate_scores, 0.3)
+            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), 0.3)
             return candidate_boxes[keep]
         else:
             return candidate_boxes
 
+    @_no_grad
     def stage_two(self, img, boxes, threshold):
 
         # no candidate face found.
@@ -191,6 +201,7 @@ class FaceDetector(object):
         keep = func.nms(candidate, scores, 0.3)
         return candidate[keep]
 
+    @_no_grad
     def stage_three(self, img, boxes, threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
