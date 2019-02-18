@@ -38,7 +38,7 @@ class TestDetection(unittest.TestCase):
     def test_stage_one(self):
         img = cv2.imread(self.test_img)
         norm_img = self.detector._preprocess(self.test_img)
-        stage_one_boxes = self.detector.stage_one(norm_img, 0.9, 0.707, 12)
+        stage_one_boxes = self.detector.stage_one(norm_img, 0.6 , 0.707, 12)
         draw.draw_boxes2(img, stage_one_boxes)
         cv2.imshow('Stage One Boxes', img)
         cv2.waitKey(0)
@@ -49,3 +49,4 @@ class TestDetection(unittest.TestCase):
         norm_img = self.detector._preprocess(self.test_img)
         stage_one_boxes = self.detector.stage_one(norm_img, 0.6, 0.707, 12)
         stage_two_boxes = self.detector.stage_two(norm_img, stage_one_boxes, 0.7)
+        pass

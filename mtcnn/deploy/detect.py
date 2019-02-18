@@ -92,7 +92,7 @@ class FaceDetector(object):
         # y1_true = y1 + ty1*h
         # y2_true = y2 + ty2*h
 
-        offsets = torch.cat([tx1, ty1, tx2, ty2], 0)
+        offsets = torch.stack([tx1, ty1, tx2, ty2], 1)
         score = probs[inds[:, 0], inds[:, 1]]
 
         # P-Net is applied to scaled images
@@ -107,18 +107,40 @@ class FaceDetector(object):
         bounding_boxes = torch.round(bounding_boxes / scale).int()
         return bounding_boxes, score, offsets
 
-    def calibrate_box(bboxes, offsets):
+    def _calibrate_box(self, bboxes, offsets, img_width, img_height):
         """Transform bounding boxes to be more like true bounding boxes.
         'offsets' is one of the outputs of the nets.
 
         Arguments:
-            bboxes: a float numpy array of shape [n, 5].
+            bboxes: a float numpy array of shape [n, 4].
             offsets: a float numpy array of shape [n, 4].
 
         Returns:
-            a float numpy array of shape [n, 5].
+            a float numpy array of shape [n, 4].
         """
-        pass
+        x1, y1, x2, y2 = [bboxes[:, i] for i in range(4)]
+        w = x2 - x1 + 1.0
+        h = y2 - y1 + 1.0
+        w = torch.unsqueeze(w, 1)
+        h = torch.unsqueeze(h, 1)
+
+        # this is what happening here:
+        # tx1, ty1, tx2, ty2 = [offsets[:, i] for i in range(4)]
+        # x1_true = x1 + tx1*w
+        # y1_true = y1 + ty1*h
+        # x2_true = x2 + tx2*w
+        # y2_true = y2 + ty2*h
+        # below is just more compact form of this
+
+        # are offsets always such that
+        # x1 < x2 and y1 < y2 ?
+
+        translation = torch.cat([w, h, w, h], 1).float() * offsets
+        bboxes += torch.round(translation).int()
+        bboxes = torch.max(torch.zeros_like(bboxes, device=self.device), bboxes)
+        sizes = torch.IntTensor([[img_height, img_width, img_height, img_width]] * bboxes.shape[0]).to(self.device)
+        bboxes = torch.min(bboxes, sizes)
+        return bboxes
 
     @_no_grad
     def stage_one(self, img, threshold, factor, minsize):
@@ -143,19 +165,22 @@ class FaceDetector(object):
         # Get candidate boxesi ph
         candidate_boxes = torch.empty((0, 4), dtype=torch.int32, device=self.device)
         candidate_scores = torch.empty((0), device=self.device)
+        candidate_offsets = torch.empty((0, 4), dtype=torch.float32, device=self.device)
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(
                 img, size=(w, h), mode='bilinear')
             p_distribution, box_regs, _ = self.pnet(resize_img)
 
-            candidate, scores, _ = self._generate_bboxes(
+            candidate, scores, offsets = self._generate_bboxes(
                 p_distribution, box_regs, f, threshold)
 
             candidate_boxes = torch.cat([candidate_boxes, candidate])
             candidate_scores = torch.cat([candidate_scores, scores])
+            candidate_offsets = torch.cat([candidate_offsets, offsets])
 
         # nms
         if candidate_boxes.shape[0] != 0:
+            candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets, width, height)
             keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), 0.3)
             return candidate_boxes[keep]
         else:
