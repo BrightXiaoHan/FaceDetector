@@ -45,3 +45,10 @@ def draw_landmarks(img, landmarks):
 
     
     return img
+
+def batch_draw_landmarks(img, batch_landmarks):
+
+    for landmarks in batch_landmarks:
+        draw_landmarks(img, landmarks)
+    
+    return img

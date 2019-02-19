@@ -30,10 +30,16 @@ class TestDetection(unittest.TestCase):
             np.load(os.path.join(weight_folder, 'onet.npy'))[()])
 
         self.detector = detect.FaceDetector(pnet, rnet, onet)
-        self.test_img = os.path.join(here, 'asset/images/office5.jpg')
+        self.test_img = os.path.join(here, 'asset/images/gpripe.jpg')
 
     def test_detection(self):
-        self.detector.detect(self.test_img)
+        img = cv2.imread(self.test_img)
+        boxes, landmarks = self.detector.detect(self.test_img)
+        draw.draw_boxes2(img, boxes
+        )
+        draw.batch_draw_landmarks(img, landmarks)
+        cv2.imshow('Stage One Boxes', img)
+        cv2.waitKey(0)
 
     def test_stage_one(self):
         img = cv2.imread(self.test_img)
@@ -48,5 +54,19 @@ class TestDetection(unittest.TestCase):
         img = cv2.imread(self.test_img)
         norm_img = self.detector._preprocess(self.test_img)
         stage_one_boxes = self.detector.stage_one(norm_img, 0.6, 0.707, 12, 0.7)
-        stage_two_boxes = self.detector.stage_two(norm_img, stage_one_boxes, 0.7)
-        pass
+        stage_two_boxes = self.detector.stage_two(norm_img, stage_one_boxes, 0.7, 0.7)
+        draw.draw_boxes2(img, stage_two_boxes)
+        cv2.imshow('Stage One Boxes', img)
+        cv2.waitKey(0)
+
+    def test_stage_three(self):
+        # Running this test  case after 'test_stage_three' passed.
+        img = cv2.imread(self.test_img)
+        norm_img = self.detector._preprocess(self.test_img)
+        stage_one_boxes = self.detector.stage_one(norm_img, 0.6, 0.707, 12, 0.7)
+        stage_two_boxes = self.detector.stage_two(norm_img, stage_one_boxes, 0.7, 0.7)
+        stage_three_boxes, landmarks = self.detector.stage_three(norm_img, stage_two_boxes, 0.7, 0.3)
+        draw.draw_boxes2(img, stage_three_boxes)
+        draw.batch_draw_landmarks(img, landmarks)
+        cv2.imshow('Stage One Boxes', img)
+        cv2.waitKey(0)

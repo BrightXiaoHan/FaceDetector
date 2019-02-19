@@ -41,13 +41,13 @@ class FaceDetector(object):
 
         return img
 
-    def detect(self, img, threshold=[0.6, 0.7, 0.7], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.7]):
+    def detect(self, img, threshold=[0.6, 0.7, 0.7], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
 
         img = self._preprocess(img)
         stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize, nms_threshold[0])
-        stage_two_boxes = self.stage_two(img, stage_one_boxes, threshold[1])
+        stage_two_boxes = self.stage_two(img, stage_one_boxes, threshold[1], nms_threshold[1])
         stage_three_boxes, landmarks = self.stage_three(
-            img, stage_two_boxes, threshold[2])
+            img, stage_two_boxes, threshold[2], nms_threshold[2])
 
         return stage_three_boxes, landmarks
 
@@ -160,7 +160,7 @@ class FaceDetector(object):
         square_bboxes[:, 2] = square_bboxes[:, 0] + max_side - 1.0
         square_bboxes[:, 3] = square_bboxes[:, 1] + max_side - 1.0
 
-        square_bboxes = torch.round(square_bboxes).int()
+        square_bboxes = torch.ceil(square_bboxes + 1).int()
         return square_bboxes
 
     def _refine_boxes(self, bboxes, w, h):
@@ -169,6 +169,31 @@ class FaceDetector(object):
         sizes = torch.IntTensor([[h, w, h, w]] * bboxes.shape[0]).to(self.device)
         bboxes = torch.min(bboxes, sizes)
         return bboxes
+
+    def _calibrate_landmarks(self, bboxes, landmarks, align=False):
+        """Compute the face landmarks coordinates
+        
+        Args:
+            bboxes (torch.IntTensor): bounding boxes of shape [n, 4]
+            landmarks (torch.floatTensor): landmarks regression output of shape [n, 10]
+            align (bool, optional): Defaults to False. If "False", return the coordinates related to the origin image. Else, return the coordinates related to alinged faces.
+        
+        Returns:
+            torch.IntTensor: face landmarks coordinates of shape [n, 10]
+        """
+
+        x1, y1, x2, y2 = [bboxes[:, i] for i in range(4)]
+        w = x2 - x1 + 1.0
+        h = y2 - y1 + 1.0
+        w = torch.unsqueeze(w, 1)
+        h = torch.unsqueeze(h, 1)
+
+        translation = torch.cat([w, h] * 5, 1).float() * landmarks
+        if align:
+            landmarks = torch.ceil(translation).int()
+        else:
+            landmarks = torch.cat([bboxes[:, :2]] * 5, 1) + torch.round(translation).int()
+        return landmarks
 
     @_no_grad
     def stage_one(self, img, threshold, factor, minsize, nms_threshold):
@@ -217,7 +242,7 @@ class FaceDetector(object):
             return candidate_boxes
 
     @_no_grad
-    def stage_two(self, img, boxes, threshold):
+    def stage_two(self, img, boxes, threshold, nms_threshold):
 
         # no candidate face found.
         if boxes.shape[0] == 0:
@@ -227,13 +252,15 @@ class FaceDetector(object):
         height = img.shape[3]
 
         # get candidate faces
-        candidate_faces = torch.empty((0, 3, 24, 24))
+        candidate_faces = list()
 
         for box in boxes:
-            im = img[:, :, box[0]: box[2], box[1]: box[3]]
+            im = img[:, :, box[1]: box[3], box[0]: box[2]]
             im = torch.nn.functional.interpolate(
                 im, size=(24, 24), mode='bilinear')
-            candidate_faces = torch.cat([candidate_faces, im])
+            candidate_faces.append(im)
+        
+        candidate_faces = torch.cat(candidate_faces, 0)
 
         # rnet forward pass
         p_distribution, box_regs, _ = self.rnet(candidate_faces)
@@ -243,38 +270,53 @@ class FaceDetector(object):
         mask = (scores >= threshold)
         boxes = boxes[mask]
         box_regs = box_regs[mask]
+        scores = scores[mask]
 
-        # compute offsets
-        w = boxes[:, 2] - boxes[:, 0]
-        h = boxes[:, 3] - boxes[:, 1]
-        weights = torch.stack([w, h, w, h])
-
-        offsets = box_regs * weights
-        candidate = boxes + offsets
+        boxes = self._calibrate_box(boxes, box_regs)
+        boxes = self._convert_to_square(boxes)
+        boxes = self._refine_boxes(boxes, width, height)
 
         # nms
-        keep = func.nms(candidate, scores, 0.3)
-        return candidate[keep]
+        keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+        return boxes[keep]
 
     @_no_grad
-    def stage_three(self, img, boxes, threshold):
+    def stage_three(self, img, boxes, threshold, nms_threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
             return boxes
 
+        width = img.shape[2]
+        height = img.shape[3]
+
         # get candidate faces
-        candidate_faces = torch.empty((0, 3, 48, 48))
+        candidate_faces = list()
 
         for box in boxes:
-            im = img[:, :, box[0]: box[2], box[1]: box[3]]
+            im = img[:, :, box[1]: box[3], box[0]: box[2]]
             im = torch.nn.functional.interpolate(
                 im, size=(48, 48), mode='bilinear')
-            candidate_faces = torch.cat([candidate_faces, im])
+            candidate_faces.append(im)
+        
+        candidate_faces = torch.cat(candidate_faces, 0)
 
-        p_distribution, box_regs, landmarks = self.rnet(candidate_faces)
-        candidate, scores, landmarks = self._filter_boxes(
-            boxes, p_distribution, box_regs, threshold, landmarks)
+        p_distribution, box_regs, landmarks = self.onet(candidate_faces)
 
+        # filter negative boxes
+        scores = p_distribution[:, 1]
+        mask = (scores >= threshold)
+        boxes = boxes[mask]
+        box_regs = box_regs[mask]
+        scores = scores[mask]
+        landmarks = landmarks[mask]
+
+        boxes = self._calibrate_box(boxes, box_regs)
+        boxes = self._refine_boxes(boxes, width, height)
+        
         # nms
-        keep = func.nms(candidate, scores, 0.3)
-        return candidate[keep], landmarks[keep]
+        keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+        boxes = boxes[keep]
+
+        # compute face landmark points
+        landmarks = self._calibrate_landmarks(boxes, landmarks[keep]).view(-1, 5, 2)
+        return boxes, landmarks
