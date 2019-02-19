@@ -41,10 +41,10 @@ class FaceDetector(object):
 
         return img
 
-    def detect(self, img, threshold=[0.6, 0.7, 0.7], factor=0.7, minsize=12):
+    def detect(self, img, threshold=[0.6, 0.7, 0.7], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.7]):
 
         img = self._preprocess(img)
-        stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize)
+        stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize, nms_threshold[0])
         stage_two_boxes = self.stage_two(img, stage_one_boxes, threshold[1])
         stage_three_boxes, landmarks = self.stage_three(
             img, stage_two_boxes, threshold[2])
@@ -163,14 +163,15 @@ class FaceDetector(object):
         square_bboxes = torch.round(square_bboxes).int()
         return square_bboxes
 
-    def _filter_boxes(self, bboxes, w, h):
+    def _refine_boxes(self, bboxes, w, h):
+
         bboxes = torch.max(torch.zeros_like(bboxes, device=self.device), bboxes)
         sizes = torch.IntTensor([[h, w, h, w]] * bboxes.shape[0]).to(self.device)
         bboxes = torch.min(bboxes, sizes)
         return bboxes
 
     @_no_grad
-    def stage_one(self, img, threshold, factor, minsize):
+    def stage_one(self, img, threshold, factor, minsize, nms_threshold):
         width = img.shape[2]
         height = img.shape[3]
 
@@ -209,8 +210,8 @@ class FaceDetector(object):
         if candidate_boxes.shape[0] != 0:
             candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets)
             candidate_boxes = self._convert_to_square(candidate_boxes)
-            candidate_boxes = self._filter_boxes(candidate_boxes, width, height)
-            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), 0.7)
+            candidate_boxes = self._refine_boxes(candidate_boxes, width, height)
+            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), nms_threshold)
             return candidate_boxes[keep]
         else:
             return candidate_boxes
