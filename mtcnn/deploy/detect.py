@@ -107,16 +107,16 @@ class FaceDetector(object):
         bounding_boxes = torch.round(bounding_boxes / scale).int()
         return bounding_boxes, score, offsets
 
-    def _calibrate_box(self, bboxes, offsets, img_width, img_height):
+    def _calibrate_box(self, bboxes, offsets):
         """Transform bounding boxes to be more like true bounding boxes.
         'offsets' is one of the outputs of the nets.
 
         Arguments:
-            bboxes: a float numpy array of shape [n, 4].
-            offsets: a float numpy array of shape [n, 4].
+            bboxes: a IntTensor of shape [n, 4].
+            offsets: a IntTensor of shape [n, 4].
 
         Returns:
-            a float numpy array of shape [n, 4].
+            a IntTensor of shape [n, 4].
         """
         x1, y1, x2, y2 = [bboxes[:, i] for i in range(4)]
         w = x2 - x1 + 1.0
@@ -137,8 +137,35 @@ class FaceDetector(object):
 
         translation = torch.cat([w, h, w, h], 1).float() * offsets
         bboxes += torch.round(translation).int()
+        return bboxes
+
+    def _convert_to_square(self, bboxes):
+        """Convert bounding boxes to a square form.
+
+        Arguments:
+            bboxes: a IntTensor of shape [n, 4].
+
+        Returns:
+            a IntTensor of shape [n, 4],
+                squared bounding boxes.
+        """
+
+        square_bboxes = torch.zeros_like(bboxes, device=self.device, dtype=torch.float32)
+        x1, y1, x2, y2 = [bboxes[:, i].float() for i in range(4)]
+        h = y2 - y1 + 1.0
+        w = x2 - x1 + 1.0
+        max_side = torch.max(h, w)
+        square_bboxes[:, 0] = x1 + w*0.5 - max_side*0.5
+        square_bboxes[:, 1] = y1 + h*0.5 - max_side*0.5
+        square_bboxes[:, 2] = square_bboxes[:, 0] + max_side - 1.0
+        square_bboxes[:, 3] = square_bboxes[:, 1] + max_side - 1.0
+
+        square_bboxes = torch.round(square_bboxes).int()
+        return square_bboxes
+
+    def _filter_boxes(self, bboxes, w, h):
         bboxes = torch.max(torch.zeros_like(bboxes, device=self.device), bboxes)
-        sizes = torch.IntTensor([[img_height, img_width, img_height, img_width]] * bboxes.shape[0]).to(self.device)
+        sizes = torch.IntTensor([[h, w, h, w]] * bboxes.shape[0]).to(self.device)
         bboxes = torch.min(bboxes, sizes)
         return bboxes
 
@@ -180,8 +207,10 @@ class FaceDetector(object):
 
         # nms
         if candidate_boxes.shape[0] != 0:
-            candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets, width, height)
-            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), 0.3)
+            candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets)
+            candidate_boxes = self._convert_to_square(candidate_boxes)
+            candidate_boxes = self._filter_boxes(candidate_boxes, width, height)
+            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), 0.7)
             return candidate_boxes[keep]
         else:
             return candidate_boxes
