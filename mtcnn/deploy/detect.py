@@ -41,7 +41,7 @@ class FaceDetector(object):
 
         return img
 
-    def detect(self, img, threshold=[0.6, 0.7, 0.7], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
+    def detect(self, img, threshold=[0.6, 0.7, 0.9], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
 
         img = self._preprocess(img)
         stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize, nms_threshold[0])
@@ -188,11 +188,11 @@ class FaceDetector(object):
         w = torch.unsqueeze(w, 1)
         h = torch.unsqueeze(h, 1)
 
-        translation = torch.cat([w, h] * 5, 1).float() * landmarks
+        translation = torch.cat([w]*5 + [h]* 5, 1).float() * landmarks
         if align:
             landmarks = torch.ceil(translation).int()
         else:
-            landmarks = torch.cat([bboxes[:, :2]] * 5, 1) + torch.round(translation).int()
+            landmarks = torch.stack([bboxes[:, 0]] * 5 + [bboxes[:, 1]] * 5, 1) + torch.round(translation).int()
         return landmarks
 
     @_no_grad
@@ -318,5 +318,6 @@ class FaceDetector(object):
         boxes = boxes[keep]
 
         # compute face landmark points
-        landmarks = self._calibrate_landmarks(boxes, landmarks[keep]).view(-1, 5, 2)
+        landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
+        landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
         return boxes, landmarks

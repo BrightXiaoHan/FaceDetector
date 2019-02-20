@@ -30,7 +30,7 @@ class TestDetection(unittest.TestCase):
             np.load(os.path.join(weight_folder, 'onet.npy'))[()])
 
         self.detector = detect.FaceDetector(pnet, rnet, onet)
-        self.test_img = os.path.join(here, 'asset/images/gpripe.jpg')
+        self.test_img = os.path.join(here, 'asset/images/office5.jpg')
 
     def test_detection(self):
         img = cv2.imread(self.test_img)
