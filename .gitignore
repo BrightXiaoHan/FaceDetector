@@ -119,4 +119,6 @@ dmypy.json
 .idea
 
 # derivative files
-output/
+output/*
+!output/caffe_models/
+!output/converted/
