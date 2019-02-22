@@ -2,6 +2,7 @@
 Test cases for mtcnn.deploy.detect.py
 """
 import os
+import time
 import cv2
 import unittest
 
@@ -70,3 +71,11 @@ class TestDetection(unittest.TestCase):
         draw.batch_draw_landmarks(img, landmarks)
         cv2.imshow('Stage One Boxes', img)
         cv2.waitKey(0)
+
+    def test_performance(self):
+        start = time.time()
+        for i in range(10):
+            self.detector.detect(self.test_img)
+        end = time.time()
+        avg_time = (end - start) / 10
+        print("Average time cost is %f. " % avg_time)
