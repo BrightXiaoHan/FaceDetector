@@ -272,13 +272,15 @@ class FaceDetector(object):
         box_regs = box_regs[mask]
         scores = scores[mask]
 
-        boxes = self._calibrate_box(boxes, box_regs)
-        boxes = self._convert_to_square(boxes)
-        boxes = self._refine_boxes(boxes, width, height)
+        if boxes.shape[0] > 0:
+            boxes = self._calibrate_box(boxes, box_regs)
+            boxes = self._convert_to_square(boxes)
+            boxes = self._refine_boxes(boxes, width, height)
 
-        # nms
-        keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
-        return boxes[keep]
+            # nms
+            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+            boxes = boxes[keep]
+        return boxes
 
     @_no_grad
     def stage_three(self, img, boxes, threshold, nms_threshold):
@@ -310,14 +312,16 @@ class FaceDetector(object):
         scores = scores[mask]
         landmarks = landmarks[mask]
 
-        boxes = self._calibrate_box(boxes, box_regs)
-        boxes = self._refine_boxes(boxes, width, height)
-        
-        # nms
-        keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
-        boxes = boxes[keep]
+        if boxes.shape[0] > 0:
 
-        # compute face landmark points
-        landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
-        landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
+            boxes = self._calibrate_box(boxes, box_regs)
+            boxes = self._refine_boxes(boxes, width, height)
+            
+            # nms
+            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+            boxes = boxes[keep]
+
+            # compute face landmark points
+            landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
+            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
         return boxes, landmarks
