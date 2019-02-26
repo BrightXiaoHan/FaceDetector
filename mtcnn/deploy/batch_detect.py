@@ -1,10 +1,11 @@
 import math
 import cv2
 import torch
+import numpy as np
 import time
 
 import mtcnn.utils.functional as func
-from mtcnn.utils.nms import nms
+
 
 def _no_grad(func):
 
@@ -16,39 +17,41 @@ def _no_grad(func):
     return wrapper
 
 
-class FaceDetector(object):
+class BatchImageDetector(object):
 
     def __init__(self, pnet, rnet, onet, device='cpu'):
-        
+
         self.device = torch.device(device)
-        
+
         self.pnet = pnet.to(self.device)
         self.rnet = rnet.to(self.device)
         self.onet = onet.to(self.device)
 
         self.onet.eval()  # Onet has dropout layer.
 
-    def _preprocess(self, img):
-
-        if isinstance(img, str):
-            img = cv2.imread(img)
+    def _preprocess(self, imgs):
 
         # Convert image from rgb to bgr for Compatible with original caffe model.
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        img = img.transpose(2, 0, 1)
-        img = torch.FloatTensor(img).to(self.device)
-        img = func.imnormalize(img)
-        img = img.unsqueeze(0)
+        tmp = []
+        for i, img in enumerate(imgs):
+            tmp.append(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
-        return img
+        imgs = np.stack(tmp)
+        imgs = imgs.transpose(0, 3, 1, 2)
+        imgs = torch.FloatTensor(imgs).to(self.device)
+        imgs = func.imnormalize(imgs)
 
-    def detect(self, img, threshold=[0.6, 0.7, 0.9], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
+        return imgs
 
-        img = self._preprocess(img)
-        stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize, nms_threshold[0])
-        stage_two_boxes = self.stage_two(img, stage_one_boxes, threshold[1], nms_threshold[1])
+    def detect(self, imgs, threshold=[0.6, 0.7, 0.9], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
+
+        imgs = self._preprocess(imgs)
+        stage_one_boxes = self.stage_one(
+            imgs, threshold[0], factor, minsize, nms_threshold[0])
+        stage_two_boxes = self.stage_two(
+            imgs, stage_one_boxes, threshold[1], nms_threshold[1])
         stage_three_boxes, landmarks = self.stage_three(
-            img, stage_two_boxes, threshold[2], nms_threshold[2])
+            imgs, stage_two_boxes, threshold[2], nms_threshold[2])
 
         return stage_three_boxes, landmarks
 
@@ -57,8 +60,8 @@ class FaceDetector(object):
         where there is probably a face.
 
         Arguments:
-            probs: a FloatTensor of shape [1, 2, n, m].
-            offsets: a FloatTensor array of shape [1, 4, n, m].
+            probs: a FloatTensor of shape [n, 2, h, w].
+            offsets: a FloatTensor array of shape [n, 4, h, w].
             scale: a float number,
                 width and height of the image were scaled by this number.
             threshold: a float number.
@@ -66,47 +69,45 @@ class FaceDetector(object):
         Returns:
             boxes: LongTensor with shape [x, 4].
             score: FloatTensor with shape [x].
+            offses: FloatTensor with shape [x, 4]
+            img_label: IntTensor with shape [x]
         """
-
         # applying P-Net is equivalent, in some sense, to
         # moving 12x12 window with stride 2
         stride = 2
         cell_size = 12
 
         # extract positive probability and resize it as [n, m] dim tensor.
-        probs = probs[0, 1, :, :]
+        probs = probs[:, 1, :, :]
 
         # indices of boxes where there is probably a face
-        inds = (probs > threshold).nonzero()
+        mask = probs > threshold
+        inds = mask.nonzero()
 
         if inds.shape[0] == 0:
-            return torch.empty((0, 4), dtype=torch.int32, device=self.device), torch.empty(0, dtype=torch.float32, device=self.device), torch.empty((0, 4), dtype=torch.float32, device=self.device)
+            return torch.empty(0, dtype=torch.int32, device=self.device), \
+                torch.empty(0, dtype=torch.float32, device=self.device), \
+                torch.empty(0, dtype=torch.float32, device=self.device), \
+                torch.empty(0, dtype=torch.int32, device=self.device)
 
         # transformations of bounding boxes
-        tx1, ty1, tx2, ty2 = [offsets[0, i, inds[:, 0], inds[:, 1]]
+        tx1, ty1, tx2, ty2 = [offsets[inds[:, 0], i, inds[:, 1], inds[:, 2]]
                               for i in range(4)]
-        # they are defined as:
-        # w = x2 - x1 + 1
-        # h = y2 - y1 + 1
-        # x1_true = x1 + tx1*w
-        # x2_true = x2 + tx2*w
-        # y1_true = y1 + ty1*h
-        # y2_true = y2 + ty2*h
 
         offsets = torch.stack([tx1, ty1, tx2, ty2], 1)
-        score = probs[inds[:, 0], inds[:, 1]]
+        score = probs[inds[:, 0], inds[:, 1], inds[:, 2]]
 
         # P-Net is applied to scaled images
         # so we need to rescale bounding boxes back
         bounding_boxes = torch.stack([
-            stride*inds[:, 1] + 1.0,
-            stride*inds[:, 0] + 1.0,
-            stride*inds[:, 1] + 1.0 + cell_size,
-            (stride*inds[:, 0] + 1.0 + cell_size),
+            stride*inds[:, -1] + 1.0,
+            stride*inds[:, -2] + 1.0,
+            stride*inds[:, -1] + 1.0 + cell_size,
+            (stride*inds[:, -2] + 1.0 + cell_size),
         ], 0).transpose(0, 1).float()
 
         bounding_boxes = torch.round(bounding_boxes / scale).int()
-        return bounding_boxes, score, offsets
+        return bounding_boxes, score, offsets, inds[:, 0].int()
 
     def _calibrate_box(self, bboxes, offsets):
         """Transform bounding boxes to be more like true bounding boxes.
@@ -197,9 +198,23 @@ class FaceDetector(object):
         return landmarks
 
     @_no_grad
-    def stage_one(self, img, threshold, factor, minsize, nms_threshold):
-        width = img.shape[2]
-        height = img.shape[3]
+    def stage_one(self, imgs, threshold, factor, minsize, nms_threshold):
+        """Stage one of mtcnn detection.
+        
+        Args:
+            imgs (torch.FloatTensro): Output of "_preprocess" method.
+            threshold (float): The minimum probability of reserve bounding boxes.
+            factor (float): Image pyramid scaling ratio.
+            minsize (int): The minimum size of reserve bounding boxes.
+            nms_threshold (float): retain boxes that satisfy overlap <= thresh
+        
+        Returns:
+            torch.IntTensor: All bounding boxes with image label output by stage one detection. [n, 5]
+        """
+
+        width = imgs.shape[-2]
+        height = imgs.shape[-1]
+        num_img = imgs.shape[0]
 
         # Compute valid scales
         scales = []
@@ -217,46 +232,65 @@ class FaceDetector(object):
             cur_height = math.ceil(cur_height * factor)
 
         # Get candidate boxesi ph
-        candidate_boxes = torch.empty((0, 4), dtype=torch.int32, device=self.device)
-        candidate_scores = torch.empty((0), device=self.device)
-        candidate_offsets = torch.empty((0, 4), dtype=torch.float32, device=self.device)
+        candidate_boxes = torch.empty(0, dtype=torch.int32, device=self.device)
+        candidate_scores = torch.empty(0, device=self.device)
+        candidate_offsets = torch.empty(
+            0, dtype=torch.float32, device=self.device)
+        all_img_labels = torch.empty(0, dtype=torch.int32, device=self.device)
         for w, h, f in scales:
             resize_img = torch.nn.functional.interpolate(
-                img, size=(w, h), mode='bilinear')
+                imgs, size=(w, h), mode='bilinear')
             p_distribution, box_regs, _ = self.pnet(resize_img)
 
-            candidate, scores, offsets = self._generate_bboxes(
+            candidate, scores, offsets, img_labels = self._generate_bboxes(
                 p_distribution, box_regs, f, threshold)
 
             candidate_boxes = torch.cat([candidate_boxes, candidate])
             candidate_scores = torch.cat([candidate_scores, scores])
             candidate_offsets = torch.cat([candidate_offsets, offsets])
+            all_img_labels = torch.cat([all_img_labels, img_labels])
 
-        # nms
+        
         if candidate_boxes.shape[0] != 0:
-            candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets)
+            candidate_boxes = self._calibrate_box(
+                candidate_boxes, candidate_offsets)
             candidate_boxes = self._convert_to_square(candidate_boxes)
-            candidate_boxes = self._refine_boxes(candidate_boxes, width, height)
-            keep = nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), nms_threshold)
-            return candidate_boxes[keep]
+            candidate_boxes = self._refine_boxes(
+                candidate_boxes, width, height)
+            
+            final_boxes = torch.empty(0, dtype=torch.int32, device=self.device)
+            final_img_labels = torch.empty(0, dtype=torch.int32, device=self.device)
+            for i in range(num_img):
+                mask = all_img_labels == i
+                keep = func.nms(candidate_boxes[mask].cpu().numpy(),
+                            candidate_scores[mask].cpu().numpy(), nms_threshold)
+                final_boxes = torch.cat([final_boxes, candidate_boxes[mask][keep]])
+                final_img_labels = torch.cat([final_img_labels, all_img_labels[mask][keep]])
+
+            return torch.cat([final_boxes, final_img_labels.unsqueeze(1 )], -1)
         else:
             return candidate_boxes
 
+
     @_no_grad
-    def stage_two(self, img, boxes, threshold, nms_threshold):
+    def stage_two(self, imgs, boxes, threshold, nms_threshold):
 
         # no candidate face found.
         if boxes.shape[0] == 0:
             return boxes
 
-        width = img.shape[2]
-        height = img.shape[3]
+        width = imgs.shape[2]
+        height = imgs.shape[3]
+        lablels = boxes[:, -1]
+        boxes = boxes[:, :4]
+
+        num_img = imgs.shape[0]
 
         # get candidate faces
         candidate_faces = list()
 
-        for box in boxes:
-            im = img[:, :, box[1]: box[3], box[0]: box[2]]
+        for box, label in zip(boxes, lablels):
+            im = imgs[label, :, box[1]: box[3], box[0]: box[2]].unsqueeze(0)
             im = torch.nn.functional.interpolate(
                 im, size=(24, 24), mode='bilinear')
             candidate_faces.append(im)
@@ -272,31 +306,48 @@ class FaceDetector(object):
         boxes = boxes[mask]
         box_regs = box_regs[mask]
         scores = scores[mask]
+        labels = lablels[mask]
 
-        if boxes.shape[0] > 0:
+        if boxes.shape[0] != 0:
             boxes = self._calibrate_box(boxes, box_regs)
             boxes = self._convert_to_square(boxes)
             boxes = self._refine_boxes(boxes, width, height)
 
-            # nms
-            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
-            boxes = boxes[keep]
-        return boxes
+            final_boxes = torch.empty(0, dtype=torch.int32, device=self.device)
+            final_img_labels = torch.empty(0, dtype=torch.int32, device=self.device)
+            for i in range(num_img):
+                mask = labels == i
+                keep = func.nms(boxes[mask].cpu().numpy(),
+                            scores[mask].cpu().numpy(), nms_threshold)
+                final_boxes = torch.cat([final_boxes, boxes[mask][keep]])
+                final_img_labels = torch.cat([final_img_labels, labels[mask][keep]])
+
+            return torch.cat([final_boxes, final_img_labels.unsqueeze(1 )], -1)
+
+        else:
+
+            return boxes
+
 
     @_no_grad
-    def stage_three(self, img, boxes, threshold, nms_threshold):
+    def stage_three(self, imgs, boxes, threshold, nms_threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
             return boxes
 
-        width = img.shape[2]
-        height = img.shape[3]
+        width = imgs.shape[2]
+        height = imgs.shape[3]
+
+        labels = boxes[:, -1]
+        boxes = boxes[:, :4]
+
+        num_img = imgs.shape[0]
 
         # get candidate faces
         candidate_faces = list()
 
-        for box in boxes:
-            im = img[:, :, box[1]: box[3], box[0]: box[2]]
+        for box, label in zip(boxes, labels):
+            im = imgs[label, :, box[1]: box[3], box[0]: box[2]].unsqueeze(0)
             im = torch.nn.functional.interpolate(
                 im, size=(48, 48), mode='bilinear')
             candidate_faces.append(im)
@@ -312,17 +363,30 @@ class FaceDetector(object):
         box_regs = box_regs[mask]
         scores = scores[mask]
         landmarks = landmarks[mask]
+        labels =labels[mask]
 
-        if boxes.shape[0] > 0:
-
+        if boxes.shape[0] != 0:
             boxes = self._calibrate_box(boxes, box_regs)
             boxes = self._refine_boxes(boxes, width, height)
-            
-            # nms
-            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
-            boxes = boxes[keep]
 
-            # compute face landmark points
-            landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
-            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
-        return boxes, landmarks
+            final_boxes = torch.empty(0, dtype=torch.int32, device=self.device)
+            final_img_labels = torch.empty(0, dtype=torch.int32, device=self.device)
+            final_landmarks = torch.empty(0, dtype=torch.int32, device=self.device)
+            for i in range(num_img):
+                
+                # nms
+                mask = labels == i
+                keep = func.nms(boxes[mask].cpu().numpy(),
+                            scores[mask].cpu().numpy(), nms_threshold)
+                final_boxes = torch.cat([final_boxes, boxes[mask][keep]])
+                final_img_labels = torch.cat([final_img_labels, labels[mask][keep]])
+
+                # compute face landmark points
+                landm = self._calibrate_landmarks(boxes[mask][keep], landmarks[mask][keep])
+                landm = torch.stack([landm[:, :5], landm[:, 5:10]], 2)
+                final_landmarks = torch.cat([final_landmarks, landm])
+
+            return torch.cat([final_boxes, final_img_labels.unsqueeze(1 )], -1), final_landmarks
+
+        else:
+            return boxes, landmarks
