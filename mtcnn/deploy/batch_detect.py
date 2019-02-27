@@ -333,7 +333,7 @@ class BatchImageDetector(object):
     def stage_three(self, imgs, boxes, threshold, nms_threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
-            return boxes
+            return boxes, torch.empty(0, device=self.device, dtype=torch.int32)
 
         width = imgs.shape[2]
         height = imgs.shape[3]
