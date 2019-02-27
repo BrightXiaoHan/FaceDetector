@@ -287,7 +287,7 @@ class FaceDetector(object):
     def stage_three(self, img, boxes, threshold, nms_threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
-            return boxes
+            return boxes, torch.empty(0, device=self.device, dtype=torch.int32)
 
         width = img.shape[2]
         height = img.shape[3]
