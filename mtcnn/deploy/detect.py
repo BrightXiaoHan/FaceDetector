@@ -4,6 +4,7 @@ import torch
 import time
 
 import mtcnn.utils.functional as func
+from mtcnn.utils.nms import nms
 
 def _no_grad(func):
 
@@ -205,11 +206,11 @@ class FaceDetector(object):
         cur_width = width
         cur_height = height
         cur_factor = 1
-        while cur_width >= minsize and cur_height >= minsize:
-            # ensure width and height are even
-            w = cur_width
-            h = cur_height
-            scales.append((w, h, cur_factor))
+        while cur_width >= 12 and cur_height >= 12:
+            if 12 / cur_factor >= minsize:  # Ignore boxes that smaller than minsize
+                w = cur_width
+                h = cur_height
+                scales.append((w, h, cur_factor))
 
             cur_factor *= factor
             cur_width = math.ceil(cur_width * factor)
@@ -286,7 +287,7 @@ class FaceDetector(object):
     def stage_three(self, img, boxes, threshold, nms_threshold):
         # no candidate face found.
         if boxes.shape[0] == 0:
-            return boxes
+            return boxes, torch.empty(0, device=self.device, dtype=torch.int32)
 
         width = img.shape[2]
         height = img.shape[3]
