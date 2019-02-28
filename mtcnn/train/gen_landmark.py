@@ -42,6 +42,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
         landmarks = item['landmarks']
 
         img = cv2.imread(image_path)
+        cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # Do this for compatible with caffe model
         img_w = img.shape[0]
         img_h = img.shape[1]
 

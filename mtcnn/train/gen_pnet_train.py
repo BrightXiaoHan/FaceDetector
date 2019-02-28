@@ -77,6 +77,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
         # Read the image
         file_name = item['file_name']
         img = cv2.imread(file_name)
+        cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # Do this for compatible with caffe model
 
         # Get boxes. (x1, y1, w, h) -> (x1, y1, x2, y2)
         boxes = np.array(item['meta_data'])[:, :4]
