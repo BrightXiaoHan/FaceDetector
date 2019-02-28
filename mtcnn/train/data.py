@@ -8,8 +8,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 
-def get_data_loader(output_folder, net_stage, framework, batch_size):
-    transform = transforms.Compose([ToTensor(framework)])
+def get_data_loader(output_folder, net_stage, batch_size):
+    transform = transforms.Compose([ToTensor()])
     dataset = MtcnnDataset(output_folder, net_stage, transform=transform)
 
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, drop_last=True)
@@ -25,28 +25,11 @@ def collate_fn(sameples):
 
 class ToTensor(object):
 
-    def __init__(self, framework):
-        """Convert ndarrays in sample to Tensors.
-        # TODO Temporary only supports pytorch
-
-        Args:
-            framework (str): tensorflow, pytorch, mtcnn is avaliable
-        """
-        if framework not in ['tensorflow', 'pytorch', 'mtcnn']:
-            raise AttributeError(
-                "Parameter 'framework must be one of 'tensorflow', 'pytorch' and 'mtcnn'.")
-        self.framework = framework
-
-        if self.framework == 'pytorch':
-            import torch
-            self.torch = torch
-
     def __call__(self, sample):
         sample[0] = sample[0].transpose((2, 0, 1))
         sample[0] = func.imnormalize(sample[0])
 
-        if self.framework == 'pytorch':
-            return list(map(self.torch.from_numpy, sample))
+        return list(map(torch.from_numpy, sample))
 
 
 class MtcnnDataset(Dataset):
