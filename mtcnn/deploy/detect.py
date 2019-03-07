@@ -315,14 +315,15 @@ class FaceDetector(object):
 
         if boxes.shape[0] > 0:
 
+            # compute face landmark points
+            landmarks = self._calibrate_landmarks(boxes, landmarks)
+            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
             boxes = self._calibrate_box(boxes, box_regs)
             boxes = self._refine_boxes(boxes, width, height)
             
             # nms
             keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
             boxes = boxes[keep]
-
-            # compute face landmark points
-            landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
-            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
+            landmarks = landmarks[keep]
+            
         return boxes, landmarks

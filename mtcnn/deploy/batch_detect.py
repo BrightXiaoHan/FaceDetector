@@ -367,6 +367,11 @@ class BatchImageDetector(object):
         labels =labels[mask]
 
         if boxes.shape[0] != 0:
+
+            # compute face landmark points
+            landmarks = self._calibrate_landmarks(boxes, landmarks)
+            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
+
             boxes = self._calibrate_box(boxes, box_regs)
             boxes = self._refine_boxes(boxes, width, height)
 
@@ -383,8 +388,7 @@ class BatchImageDetector(object):
                 final_img_labels = torch.cat([final_img_labels, labels[mask][keep]])
 
                 # compute face landmark points
-                landm = self._calibrate_landmarks(boxes[mask][keep], landmarks[mask][keep])
-                landm = torch.stack([landm[:, :5], landm[:, 5:10]], 2)
+                landm = landmarks  [mask][keep]
                 final_landmarks = torch.cat([final_landmarks, landm])
 
             return torch.cat([final_boxes, final_img_labels.unsqueeze(1 )], -1), final_landmarks
