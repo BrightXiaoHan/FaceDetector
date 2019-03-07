@@ -164,6 +164,8 @@ class _Net(nn.Module):
         for n, p in self.named_parameters():
             p.data = torch.FloatTensor(weights[n], device=self.device)
 
+    def to_script(self):
+        raise NotImplementedError
 
 class PNet(_Net):
 
@@ -205,9 +207,14 @@ class PNet(_Net):
         feature_map = self.body(x)
         label = self.cls(feature_map)
         offset = self.box_offset(feature_map)
-        landmarks = self.landmarks(feature_map) if self.is_train else None
+        landmarks = self.landmarks(feature_map) if self.is_train else torch.empty(0, device=self.device)
 
         return label, offset, landmarks
+
+    def to_script(self):
+        data = torch.randn(100, 3, 12, 12)
+        script_module = torch.jit.trace(self, data)
+        return script_module
 
 
 class RNet(_Net):
@@ -259,9 +266,14 @@ class RNet(_Net):
         # detection
         det = self.cls(x)
         box = self.box_offset(x)
-        landmarks = self.landmarks(x) if self.is_train else None
+        landmarks = self.landmarks(x) if self.is_train else torch.empty(0, device=self.device)
 
         return det, box, landmarks
+
+    def to_script(self):
+        data = torch.randn(100, 3, 24, 24)
+        script_module = torch.jit.trace(self, data)
+        return script_module
 
 
 class ONet(_Net):
@@ -324,3 +336,8 @@ class ONet(_Net):
         landmarks = self.landmarks(x)
 
         return det, box, landmarks
+
+    def to_script(self):
+        data = torch.randn(100, 3, 48, 48)
+        script_module = torch.jit.trace(self, data)
+        return script_module
