@@ -18,20 +18,34 @@ class FaceTracker(object):
         self.detector = detector
         self.re_detect_every = re_detect_every
         self.min_interval = min_interval
+        self.iou_thres = iou_thres
 
         self.reset()
+        self.image_cache = dict()
+        self.cur_count = 0
 
     def track(self, frame):
-        if self.cur_count % self.cur_count == 0:
+        if self.cur_count % self.min_interval == 0 or len(self.boxes_cache) == 0:
             boxes, _ = self.detector.detect(frame)
+            boxes = boxes.cpu().numpy()
 
-            for b in self.boxes_cache:
-                func.IoU(b, boxes)
-        
+            if boxes.shape[0] != 0:
+                
+                update_cache = {}
+                for i, b in enumerate(self.boxes_cache):
+                    ovr = func.IoU(b, boxes)
+                    max_ovr = ovr.max()
+                    max_index = ovr.argmax()
+                    if ovr >= self.iou_thres:
+                        update_cache[max_index] = self.label_cache[i]
+
+                
+
+            self.reset()
 
     def reset(self):
-        self.cur_count = 0
+        
         self.boxes_cache = []
         self.label_cache = []
         self.interval_cache = []
-        self.image_cache = dict()
+        
