@@ -27,6 +27,17 @@ class FaceDetector(object):
         self.onet = onet.to(self.device)
 
         self.onet.eval()  # Onet has dropout layer.
+    
+    def to_script(self):
+        if isinstance(self.pnet, torch.nn.Module):
+            self.pnet.to_script()
+        
+        if isinstance(self.rnet, torch.nn.Module):
+            self.rnet.to_script()
+
+        if isinstance(self.onet, torch.nn.Module):
+            self.onet.to_script()
+        return self
 
     def _preprocess(self, img):
 
