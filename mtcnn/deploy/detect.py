@@ -27,6 +27,17 @@ class FaceDetector(object):
         self.onet = onet.to(self.device)
 
         self.onet.eval()  # Onet has dropout layer.
+    
+    def to_script(self):
+        if isinstance(self.pnet, torch.nn.Module):
+            self.pnet.to_script()
+        
+        if isinstance(self.rnet, torch.nn.Module):
+            self.rnet.to_script()
+
+        if isinstance(self.onet, torch.nn.Module):
+            self.onet.to_script()
+        return self
 
     def _preprocess(self, img):
 
@@ -315,14 +326,15 @@ class FaceDetector(object):
 
         if boxes.shape[0] > 0:
 
+            # compute face landmark points
+            landmarks = self._calibrate_landmarks(boxes, landmarks)
+            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
             boxes = self._calibrate_box(boxes, box_regs)
             boxes = self._refine_boxes(boxes, width, height)
             
             # nms
             keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
             boxes = boxes[keep]
-
-            # compute face landmark points
-            landmarks = self._calibrate_landmarks(boxes, landmarks[keep])
-            landmarks = torch.stack([landmarks[:, :5], landmarks[:, 5:10]], 2)
+            landmarks = landmarks[keep]
+            
         return boxes, landmarks
