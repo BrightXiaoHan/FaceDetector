@@ -53,7 +53,7 @@ class FaceDetector(object):
 
         return img
 
-    def detect(self, img, threshold=[0.6, 0.7, 0.9], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
+    def detect(self, img, threshold=[0.6, 0.7, 0.85], factor=0.7, minsize=12, nms_threshold=[0.7, 0.7, 0.3]):
 
         img = self._preprocess(img)
         stage_one_boxes = self.stage_one(img, threshold[0], factor, minsize, nms_threshold[0])
@@ -246,8 +246,6 @@ class FaceDetector(object):
         # nms
         if candidate_boxes.shape[0] != 0:
             candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets)
-            candidate_boxes = self._convert_to_square(candidate_boxes)
-            candidate_boxes = self._refine_boxes(candidate_boxes, width, height)
             keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), nms_threshold)
             return candidate_boxes[keep]
         else:
@@ -262,6 +260,9 @@ class FaceDetector(object):
 
         width = img.shape[2]
         height = img.shape[3]
+
+        boxes = self._convert_to_square(boxes)
+        boxes = self._refine_boxes(boxes, width, height)
 
         # get candidate faces
         candidate_faces = list()
@@ -286,9 +287,6 @@ class FaceDetector(object):
 
         if boxes.shape[0] > 0:
             boxes = self._calibrate_box(boxes, box_regs)
-            boxes = self._convert_to_square(boxes)
-            boxes = self._refine_boxes(boxes, width, height)
-
             # nms
             keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
             boxes = boxes[keep]
@@ -302,6 +300,9 @@ class FaceDetector(object):
 
         width = img.shape[2]
         height = img.shape[3]
+
+        boxes = self._convert_to_square(boxes)
+        boxes = self._refine_boxes(boxes, width, height)
 
         # get candidate faces
         candidate_faces = list()
