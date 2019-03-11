@@ -66,3 +66,12 @@ class TestFunctional(unittest.TestCase):
             # cv2.imshow("After NMS", image)
             # cv2.waitKey(0)
             self.assertEqual(len(pick), num_face)
+
+    def test_iou_torch(self):
+        boxes = self.images[0][1][:, :4]
+        b = torch.IntTensor(boxes[0])
+        boxes = torch.IntTensor(boxes)
+
+        over = func.iou_torch(b, boxes).numpy().tolist()
+        self.assertEqual(over[0], 1)
+        
