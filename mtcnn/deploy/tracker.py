@@ -1,10 +1,12 @@
 import torch
 import uuid
 import numpy as np
-from collections import defaultdict
+
 import mtcnn.deploy.detect as detect
 import mtcnn.utils.functional as func
 
+from collections import defaultdict
+from easydict import EasyDict
 
 class FaceTracker(object):
 
@@ -27,7 +29,7 @@ class FaceTracker(object):
         self.image_cache = defaultdict(list)
 
         # Set params for detector. This can be modefied by "set_detect_params"
-        self.default_detect_params = dict(
+        self.default_detect_params = EasyDict(
             threshold=[0.6, 0.7, 0.9], 
             factor=0.7, 
             minsize=12, 
@@ -46,10 +48,10 @@ class FaceTracker(object):
             if boxes.shape[0] != 0:
                 
                 for i, b in enumerate(self.boxes_cache):
-                    ovr = func.IoU(b, boxes)
+                    ovr = func.iou_torch(b, boxes)
                     max_ovr = ovr.max()
                     max_index = ovr.argmax()
-                    if ovr >= self.iou_thres:
+                    if max_ovr >= self.iou_thres:
                         update_cache[max_index] = self.label_cache[i]
 
             self.reset()
@@ -67,10 +69,11 @@ class FaceTracker(object):
             self.cur_count += 1
         
         else:
-            boxes = self.detector.stage_three(frame, torch.stack(self.boxes_cache), self.default_detect_params)
+            frame = self.detector._preprocess(frame)
+            boxes, _ = self.detector.stage_three(frame, torch.stack(self.boxes_cache), self.default_detect_params.threshold[2], self.default_detect_params.nms_threshold[2])
             update_cache = {}
             for b in boxes:
-                ovr = func.IoU(b, self.boxes_cache)
+                ovr = func.iou_torch(b, torch.stack(self.boxes_cache))
                 max_index = ovr.argmax()
                 update_cache[max_index] = b
 
