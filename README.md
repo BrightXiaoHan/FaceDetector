@@ -18,7 +18,7 @@ So we create this project and add these features:
 - Transfer all numpy operation to torch operation, so that it can benefit from gpu acceleration. It's 10 times faster than the original repo [mtcnn-pytorch](https://github.com/TropComplique/mtcnn-pytorch).
 - Provide unified interface to assign 'cpu' or 'gpu'.
 - Based on the latest version of pytorch (1.0) and we will provide long-term support.
-- It's is a component of our FaceLab ecosystem.  ## TODO
+- It's is a component of our [FaceLab](https://github.com/faciallab) ecosystem.  ## TODO
 - Real-time face tracking.  ## TODO
 - Friendly tutorial for beginner.
 
