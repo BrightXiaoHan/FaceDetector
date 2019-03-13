@@ -56,6 +56,32 @@ python scripts/detect_on_video.py --video_path ./tests/asset/video/school.avi --
 
 you can set device to 'cpu' if you have no valid gpu on your machine
 
+## Basic Usage
+
+```python
+import cv2
+import mtcnn
+
+# First we create pnet, rnet, onet, and load weights from caffe model.
+pnet, rnet, onet = mtcnn.get_net_caffe('output/converted')
+
+# Then we create a detector
+detector = mtcnn.FaceDetector(pnet, rnet, onet, device='cuda:0')
+
+# Then we can detect faces from image
+img = 'tests/asset/images/office5.jpg'
+boxes, landmarks = detector.detect(img)
+
+# Then we draw bounding boxes and landmarks on image
+image = cv2.imread(img)
+image = mtcnn.utils.draw.draw_boxes2(image, boxes)
+image = mtcnn.utils.draw.batch_draw_landmarks(image, landmarks)
+
+# Show the result
+cv2.imshwow(image)
+cv2.waitKey(0)
+```
+
 ## Tutorial
 
 [Detect step by step](./tutorial/detect_step_by_step.ipynb).
