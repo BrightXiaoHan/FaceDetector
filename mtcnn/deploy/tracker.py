@@ -41,13 +41,14 @@ class FaceTracker(object):
         
 
     def track(self, frame):
-        if self.cur_count % self.min_interval == 0 or len(self.boxes_cache) == 0:
+        if self.cur_count % self.re_detect_every == 0 or len(self.boxes_cache) == 0:
             boxes, landmarks = self.detector.detect(frame, **self.default_detect_params)
 
             update_cache = {}
             if boxes.shape[0] != 0:
                 
                 for i, b in enumerate(self.boxes_cache):
+                    b = torch.tensor(b, dtype=torch.int32, device=self.detector.device)
                     ovr = func.iou_torch(b, boxes)
                     max_ovr = ovr.max()
                     max_index = ovr.argmax()
@@ -58,7 +59,7 @@ class FaceTracker(object):
             for b in boxes:
                 self.label_cache.append(uuid.uuid1())
                 self.interval_cache.append(0)
-                self.boxes_cache.append(b)
+                self.boxes_cache.append(b.cpu().numpy().tolist())
 
             for k, v in update_cache.items():
                 self.label_cache[k] = v
@@ -69,13 +70,14 @@ class FaceTracker(object):
             self.cur_count += 1
         
         else:
-            frame = self.detector._preprocess(frame)
-            boxes, landmarks = self.detector.stage_three(frame, torch.stack(self.boxes_cache), self.default_detect_params.threshold[2], self.default_detect_params.nms_threshold[2])
+            torch_img = self.detector._preprocess(frame)
+            boxes_cache = torch.tensor(self.boxes_cache, dtype=torch.int32, device=self.detector.device)
+            boxes, landmarks = self.detector.stage_three(torch_img, boxes_cache, self.default_detect_params.threshold[2], self.default_detect_params.nms_threshold[2])
             update_cache = {}
             for b in boxes:
-                ovr = func.iou_torch(b, torch.stack(self.boxes_cache))
+                ovr = func.iou_torch(b, boxes_cache)
                 max_index = int(ovr.argmax())
-                update_cache[max_index] = b
+                update_cache[max_index] = b.cpu().numpy().tolist()
 
             revome_list = []
             for i, b in enumerate(self.boxes_cache):
