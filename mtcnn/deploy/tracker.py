@@ -42,7 +42,7 @@ class FaceTracker(object):
 
     def track(self, frame):
         if self.cur_count % self.min_interval == 0 or len(self.boxes_cache) == 0:
-            boxes, _ = self.detector.detect(frame, **self.default_detect_params)
+            boxes, landmarks = self.detector.detect(frame, **self.default_detect_params)
 
             update_cache = {}
             if boxes.shape[0] != 0:
@@ -70,17 +70,18 @@ class FaceTracker(object):
         
         else:
             frame = self.detector._preprocess(frame)
-            boxes, _ = self.detector.stage_three(frame, torch.stack(self.boxes_cache), self.default_detect_params.threshold[2], self.default_detect_params.nms_threshold[2])
+            boxes, landmarks = self.detector.stage_three(frame, torch.stack(self.boxes_cache), self.default_detect_params.threshold[2], self.default_detect_params.nms_threshold[2])
             update_cache = {}
             for b in boxes:
                 ovr = func.iou_torch(b, torch.stack(self.boxes_cache))
-                max_index = ovr.argmax()
+                max_index = int(ovr.argmax())
                 update_cache[max_index] = b
 
             revome_list = []
             for i, b in enumerate(self.boxes_cache):
                 if i in update_cache:
                     self.boxes_cache[i] = update_cache[i]
+                    self.interval_cache[i] = 0
                     self.image_cache[self.label_cache[i]].append(frame[b[1]: b[3], b[0]: b[2]])
                 else:
                     if self.interval_cache[i] <= self.min_interval:
@@ -88,12 +89,13 @@ class FaceTracker(object):
                     else:
                         revome_list.append(i)
 
-            for i in revome_list:
-                self.label_cache.pop(i)
-                self.interval_cache.pop(i)
-                self.boxes_cache.pop(i)
+            self.label_cache = [value for i, value in enumerate(self.label_cache) if i not in revome_list]
+            self.interval_cache = [value for i, value in enumerate(self.interval_cache) if i not in revome_list]
+            self.boxes_cache = [value for i, value in enumerate(self.boxes_cache) if i not in revome_list]
 
             self.cur_count += 1
+        
+        return boxes, landmarks
 
 
     def reset(self):
