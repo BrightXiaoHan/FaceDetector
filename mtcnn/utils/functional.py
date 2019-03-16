@@ -1,4 +1,5 @@
 import cv2
+import torch
 import numpy as np
 
 import mtcnn.utils.nms as nms_c 
@@ -54,3 +55,32 @@ def imnormalize(img):
 
     img = (img - 127.5) * 0.0078125
     return img
+
+def iou_torch(box, boxes):
+    """Compute IoU between detect box and gt boxes
+    
+    Args:
+        box (torch.IntTensor): shape (4, )
+        boxes (torch.IntTensor): shape (n, 4)
+    
+    Returns:
+        torch.FloatTensor: [description]
+    """
+
+    box_area = (box[2] - box[0] + 1) * (box[3] - box[1] + 1)
+    area = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1)
+    xx1 = torch.max(box[0], boxes[:, 0])
+    yy1 = torch.max(box[1], boxes[:, 1])
+    xx2 = torch.min(box[2], boxes[:, 2])
+    yy2 = torch.min(box[3], boxes[:, 3])
+
+    # compute the width and height of the bounding box
+    w = xx2 - xx1 + 1
+    h = yy2 - yy1 + 1
+    w = torch.max(torch.zeros_like(w), w)
+    h = torch.max(torch.zeros_like(h), h)
+
+    inter = w * h
+    ovr = inter.float() / (box_area + area - inter).float()
+    
+    return ovr

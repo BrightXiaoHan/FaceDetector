@@ -162,7 +162,7 @@ class _Net(nn.Module):
         if self.is_train:
             raise AssertionError("This method is avaliable only when 'is_train' is false.")
         for n, p in self.named_parameters():
-            p.data = torch.FloatTensor(weights[n], device=self.device)
+            p.data = torch.FloatTensor(weights[n], device="cpu")
 
     def to_script(self):
         raise NotImplementedError
@@ -212,7 +212,7 @@ class PNet(_Net):
         return label, offset, landmarks
 
     def to_script(self):
-        data = torch.randn(100, 3, 12, 12)
+        data = torch.randn((100, 3, 12, 12), device=self.device)
         script_module = torch.jit.trace(self, data)
         return script_module
 
@@ -271,7 +271,7 @@ class RNet(_Net):
         return det, box, landmarks
 
     def to_script(self):
-        data = torch.randn(100, 3, 24, 24)
+        data = torch.randn((100, 3, 24, 24), device=self.device)
         script_module = torch.jit.trace(self, data)
         return script_module
 
@@ -338,6 +338,6 @@ class ONet(_Net):
         return det, box, landmarks
 
     def to_script(self):
-        data = torch.randn(100, 3, 48, 48)
+        data = torch.randn((100, 3, 48, 48), device=self.device)
         script_module = torch.jit.trace(self, data)
         return script_module
