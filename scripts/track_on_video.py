@@ -7,8 +7,8 @@ import mtcnn
 
 
 parser = argparse.ArgumentParser(description='this is a description')
-parser.add_argument('--video_path', type=str,
-                    default=None, help="Read from video.")
+parser.add_argument('--video_path', type=str, help="Read from video.")
+parser.add_argument('--output_folder', type=str, help="Save the tracking result.")
 parser.add_argument('--saved_path', type=str, default=None,
                     help="If set, Save as video. Or show it on screen.")
 parser.add_argument("--minsize", type=int, default=24,
@@ -22,6 +22,7 @@ args = parser.parse_args()
 pnet, rnet, onet = mtcnn.get_net_caffe('output/converted')
 detector = mtcnn.FaceDetector(pnet, rnet, onet, device=args.device)
 tracker = mtcnn.FaceTracker(detector, min_interval=args.min_interval)
+tracker.set_detect_params(minsize=args.minsize)
 
 fourcc = cv2.VideoWriter_fourcc(*"XVID")
 
@@ -50,6 +51,16 @@ while True:
         cv2.waitKey(1)
     else:
         out.write(image)
+
+for k, v in tracker.get_cache().items():
+    if len(v) < 5:
+        continue
+    saved_dir = os.path.join(args.output_folder, str(k))
+    if not os.path.isdir(saved_dir):
+        os.makedirs(saved_dir)
+    for i, img in enumerate(v):
+        cv2.imwrite(os.path.join(saved_dir, "%d.jpg" % i), img)
+
 
 if args.saved_path is not None:
     out.release()
