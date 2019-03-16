@@ -83,6 +83,7 @@ class FaceTracker(object):
             for i, b in enumerate(self.boxes_cache):
                 if i in update_cache:
                     self.boxes_cache[i] = update_cache[i]
+                    b = update_cache[i]
                     self.interval_cache[i] = 0
                     self.image_cache[self.label_cache[i]].append(frame[b[1]: b[3], b[0]: b[2]])
                 else:
