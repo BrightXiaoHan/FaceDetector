@@ -24,18 +24,30 @@ So we create this project and add these features:
 
 ## Installation
 
-### Pre-requests
+### Create virtual env use conda (recommend)
 
-- Anaconda3
-- pytorch 0.4+
-- opencv-python
-- easydict
-- cython
+```
+conda create -n face_detection python=3
+source activate face_detection
+```
+
+### Installation dependency package
+
+```bash
+pip install opencv-python numpy easydict Cython progressbar2 torch
+```
+
+If you have gpu on your mechine, you can follow the [official instruction](https://pytorch.org/) and install pytorch gpu version.
 
 ### Compile the cython code
 
 ```bash
 python setup.py build_ext --inplace
+```
+
+### Olso, you can install mtcnn as a package
+```
+python setup.py install
 ```
 
 ## Test the code by example
