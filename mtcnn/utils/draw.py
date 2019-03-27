@@ -30,6 +30,24 @@ def draw_boxes2(img, boxes):
     
     return img
 
+def crop(img, boxes, landmarks=None):
+    """Cut region from origin image
+    
+    Args:
+        img (np.array): image matrix returned by cv2.imread
+        boxes (list): Each item contrains a bounding box (x1, y1, x2, y2). (List like objects are all ok. "np.array" for example.)
+    """
+    if landmarks is not None:
+        img = img.copy()
+        batch_draw_landmarks(img, landmarks)
+
+    img_list = []
+    for box in boxes:
+        i = img[box[1]:box[3], box[0]:box[2]]
+        img_list.append(i)
+
+    return img_list
+
 
 def draw_landmarks(img, landmarks):
     """Draw points on original image.
