@@ -27,18 +27,25 @@ class TestGenLandmarks(unittest.TestCase):
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
         meta = random.choices(meta, k=self.top)
-        gl.gen_landmark_data(meta, 12, self.output_folder, argument=True)
+        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True)
 
     def test_get_landmark_data(self):
-        images, landmarks = gl.get_landmark_data(self.output_folder)
+        data = gl.get_landmark_data(self.output_folder)
+
+        images, landmarks = data.images, data.landmarks
+
         self.assertEqual(len(images), len(landmarks))
 
         # Random sampling 10 pictures and draw landmark points on them.
-        output_folder = os.path.join(self.output_folder, 'sample_images')
+        output_folder = os.path.join(self.output_folder, 'sample_images', 'landmarks')
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
 
+        # convert from (n, 10) to (n, 5, 2) 
+        landmarks = landmarks.reshape(-1, 2, 5).transpose(0, 2, 1)
+
         for i, (im, lm) in enumerate(zip(images[:10], landmarks[:10])):
+            im = cv2.imread(im)
             w = im.shape[0]
             h = im.shape[1]
 

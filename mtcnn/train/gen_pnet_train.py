@@ -12,6 +12,20 @@ from mtcnn.utils.functional import IoU
 
 here = os.path.dirname(__file__)
 
+class PnetData(object):
+    
+    """
+    Define a custom data structure for pnet training data.
+    """
+
+    def __init__(self, pos, part, neg, pos_reg, part_reg):
+
+        self.pos = pos
+        self.part = part
+        self.neg = neg
+        self.pos_reg = pos_reg
+        self.part_reg = part_reg
+
 
 def get_training_data_for_pnet(output_folder):
     """Get pnet training data for classification and bounding box regression tasks
@@ -20,7 +34,7 @@ def get_training_data_for_pnet(output_folder):
         output_folder {str} -- Consistent with parameter 'output_folder' passed in method "generate_training_data_for_pnet".
 
     Returns:
-        images {list}, meta_data {list} -- Contains positive, part, negative image matrix and meta data saved by method "generate_training_data_for_pnet".
+        {PnetData} -- 'PnetData' object.
     """
 
     positive_dest = os.path.join(output_folder, 'pnet', 'positive')
@@ -32,16 +46,18 @@ def get_training_data_for_pnet(output_folder):
     negative_meta_file = os.path.join(output_folder, 'pnet', 'pnet_negative_meta.csv')
 
     # load from disk to menmory
-    positive_meta = np.array(pd.read_csv(positive_meta_file))
-    positive_meta[:, 0] = [os.path.join(positive_dest, i) for i in positive_meta[:, 0]]
+    positive_meta = pd.read_csv(positive_meta_file)
+    pos = [os.path.join(part_dest, i) for i in positive_meta.iloc[:, 0]]
+    pos_reg = np.array(positive_meta.iloc[:, 1:])
 
-    part_meta = np.array(pd.read_csv(part_meta_file))
-    part_meta_file[:, 0] = [os.path.join(part_meta_file, i) for i in part_meta[:, 0]]
+    part_meta = pd.read_csv(part_meta_file)
+    part = [os.path.join(part_dest, i) for i in part_meta.iloc[:, 0]]
+    part_reg = np.array(part_meta.iloc[:, 1:])
 
-    negative_meta = np.array(pd.read_csv(negative_meta_file))
-    negative_meta_file[:, 0] = [os.path.join(negative_meta_file, i) for i in negative_meta[:, 0]]
+    negative_meta = pd.read_csv(negative_meta_file)
+    neg = [os.path.join(negative_dest, i) for i in negative_meta.iloc[:, 0]]
 
-    return images, meta_data
+    return PnetData(pos, part, neg, pos_reg, part_reg)
 
 
 def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):

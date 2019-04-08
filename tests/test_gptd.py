@@ -27,25 +27,9 @@ class TestGenTrain(unittest.TestCase):
         meta = self.dataset.get_train_meta()
         meta = random.choices(meta, k=self.top)
         gptd.generate_training_data_for_pnet(
-            meta, output_folder=self.output_folder)
+            meta, output_folder=self.output_folder, crop_size=48)
 
     def test_get_pnet_train(self):
-        images, meta = gptd.get_training_data_for_pnet(self.output_folder)
-        self.assertEqual(len(images), 3)
-        self.assertEqual(len(meta), 3)
-
-        # Random sampling 100 pictures from "positive", "negative" and "part" examples.
-        output_folder = os.path.join(self.output_folder, 'pnet', 'sample_images')
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
-
-        for i, (pos, neg, part) in enumerate(zip(*images)):
-            cv2.imwrite(os.path.join(
-                output_folder, 'pos_%d.jpg' % i), pos)
-            cv2.imwrite(os.path.join(
-                output_folder, 'neg_%d.jpg' % i), neg)
-            cv2.imwrite(os.path.join(
-                output_folder, 'part_%d.jpg' % i), part)
-
-            if i > 100:
-                break
+        pnet_data = gptd.get_training_data_for_pnet(self.output_folder)
+        
+        part, part_reg = pnet_data.part, pnet_data.part_reg

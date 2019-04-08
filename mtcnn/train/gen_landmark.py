@@ -5,19 +5,30 @@ import shutil
 import cv2
 import progressbar
 import numpy as np
+import pandas as pd
 import numpy.random as npr
 
 from mtcnn.utils.functional import IoU
 
+class LandmarkData(object):
+    """
+    Custom data structure for storing facial landmark points training data.
+    """
+    def __init__(self, images, landmarks):
+        self.images = images
+        self.landmarks = landmarks
+
 
 def get_landmark_data(output_folder, suffix='landmarks'):
     
-    output_folder = os.path.join(output_folder, suffix)
+    image_file_folder = os.path.join(output_folder, suffix)
+    meta_file = os.path.join(output_folder, 'landmarks_meta.csv')
 
-    images = np.load(os.path.join(output_folder, 'image_matrix.npy'))
-    landmarks = np.load(os.path.join(output_folder, 'landmarks.npy'))
-
-    return images, landmarks
+    meta = pd.read_csv(meta_file)
+    images = [os.path.join(image_file_folder, i) for i in meta.iloc[:, 0]]
+    landmarks = np.array(meta.iloc[:, 1:])
+    
+    return LandmarkData(images, landmarks)
 
 
 
@@ -38,7 +49,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
         shutil.rmtree(image_output_folder)
     
     os.makedirs(image_output_folder)
-    landmark_meta_file = open(os.path.join(output_folder, suffix + 'meta.csv'), 'w')
+    landmark_meta_file = open(os.path.join(output_folder, "landmarks_meta.csv"), 'w')
 
     bar = progressbar.ProgressBar(max_value=len(meta) - 1)
 

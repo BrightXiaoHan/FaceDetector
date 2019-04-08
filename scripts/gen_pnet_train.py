@@ -19,8 +19,6 @@ landmarks_meta = landmarks_dataset.get_train_meta()
 gl.gen_landmark_data(landmarks_meta, 12, args.output_folder, argument=True)
 
 detection_dataset = get_by_name(args.detection_dataset)
-# landmark dataset contains detection dataset
 detection_meta = detection_dataset.get_train_meta()
-detection_meta.extend(landmarks_meta)
 gptd.generate_training_data_for_pnet(detection_meta, output_folder=args.output_folder)
 
