@@ -1,5 +1,6 @@
 import os
 import random
+import shutil
 
 import cv2
 import progressbar
@@ -30,8 +31,14 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
         output_folder (str): Directory to save the result.
         argument (bool, optional): Defaults to False. Apply augmentation or not.
     """
-    final_images = []
-    final_landmarks = []
+    total_num = 0
+    
+    image_output_folder = os.path.join(output_folder, suffix)
+    if os.path.exists(image_output_folder):
+        shutil.rmtree(image_output_folder)
+    
+    os.makedirs(image_output_folder)
+    landmark_meta_file = open(os.path.join(output_folder, suffix + 'meta.csv'), 'w')
 
     bar = progressbar.ProgressBar(max_value=len(meta) - 1)
 
@@ -67,10 +74,13 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
             # (( x - bbox.left)/ width of bounding box, (y - bbox.top)/ height of bounding box
             landmark_gtx = (landmark[:, 0] - left) / w
             landmark_gty = (landmark[:, 1] - top) / h
-            landmark_gt = np.stack([landmark_gtx, landmark_gty], 1)
-
-            final_images.append(face_img)
-            final_landmarks.append(landmark_gt)
+            landmark_gt = np.concatenate([landmark_gtx, landmark_gty]).tolist()
+            
+            total_num += 1
+            cv2.imwrite(os.path.join(image_output_folder, str(total_num) + '.jpg'), face_img)
+            landmark_meta_file.write('str(total_num)' + '.jpg, ')
+            landmark_meta_file.write(','.join([str(i) for i in landmark_gt]))
+            landmark_meta_file.write('\n')
 
             if not argument:
                 continue
@@ -106,19 +116,12 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
                     cropped_img = img[ny1: ny2, nx1: nx2]
                     cropped_img = cv2.resize(cropped_img, (size, size))
 
-                    final_images.append(cropped_img)
-                    final_landmarks.append(landmark_gt)
+                    total_num += 1
+                    cv2.imwrite(os.path.join(image_output_folder, str(total_num) + '.jpg'), cropped_img)
+                    landmark_meta_file.write('str(total_num)' + '.jpg, ')
+                    landmark_meta_file.write(','.join([str(i) for i in landmark_gt]))
+                    landmark_meta_file.write('\n')
 
     bar.update()
 
-    # Joint all face images and landmarks together
-    final_images = np.stack(final_images)
-    final_landmarks = np.stack(final_landmarks)
-
-    output_folder = os.path.join(output_folder, suffix)
-    # Save the result
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
-
-    np.save(os.path.join(output_folder, 'image_matrix.npy'), final_images)
-    np.save(os.path.join(output_folder, 'landmarks.npy'), final_landmarks)
+    landmark_meta_file.close()
