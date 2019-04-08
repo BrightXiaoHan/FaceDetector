@@ -123,3 +123,4 @@ output/*
 !output/caffe_models/
 !output/converted/
 mtcnn/utils/nms.c
+runs/

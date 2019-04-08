@@ -29,7 +29,9 @@ class ToTensor(object):
         sample[0] = sample[0].transpose((2, 0, 1))
         sample[0] = func.imnormalize(sample[0])
 
-        return list(map(torch.from_numpy, sample))
+        sample = [torch.tensor(i, dtype=torch.float32) for i in sample]
+        sample[1] = sample[1].long()
+        return sample
 
 
 class MtcnnDataset(Dataset):
@@ -58,13 +60,12 @@ class MtcnnDataset(Dataset):
         """
         self.transform = transform
 
-        # get landmarks data
-        landmark_image, landmark_meta = landm.get_landmark_data(
-            output_folder, suffix='pnet/landmarks')
-        landmark_meta = np.reshape(landmark_meta, (-1, 10))
-
         # get classification and box regression tasks data
         if net_stage == 'pnet':
+            # get landmarks data
+            landmark_image, landmark_meta = landm.get_landmark_data(
+                output_folder, suffix='pnet/landmarks')
+            landmark_meta = np.reshape(landmark_meta, (-1, 10))
             (pos_img, neg_img, part_img), (pos_meta, neg_meta,
                                            part_meta) = pnet.get_training_data_for_pnet(output_folder)
         elif net_stage == 'rnet':

@@ -148,7 +148,7 @@ class _Net(nn.Module):
         pred_landmark = torch.squeeze(pred_landmark)
         gt_landmark = torch.squeeze(gt_landmark)
         gt_label = torch.squeeze(gt_label)
-        mask = torch.eq(gt_label, -1)
+        mask = torch.eq(gt_label, -2)
         # broadcast mask
         mask = torch.stack([mask] * 10, dim=1)
 
