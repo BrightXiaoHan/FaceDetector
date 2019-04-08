@@ -1,6 +1,7 @@
 import os
 import sys
 import cv2
+import shutil
 import progressbar
 
 import numpy as np
@@ -49,24 +50,24 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
         output_folder (str): Directory to save the result.
         crop_size (int): image size to crop.
     """
-    positive_dest = os.path.join(output_folder, 'pnet', 'positive')
-    negative_dest = os.path.join(output_folder, 'pnet', 'negative')
-    part_dest = os.path.join(output_folder, 'pnet', 'part')
+    pnet_data_folder = os.path.join(output_folder, 'pnet')
+
+    positive_dest = os.path.join(pnet_data_folder, 'positive')
+    negative_dest = os.path.join(pnet_data_folder, 'negative')
+    part_dest = os.path.join(pnet_data_folder, 'part')
+
+    [shutil.rmtree(x) for x in (positive_dest, negative_dest,
+                              part_dest) if os.path.exists(x)]
 
     # Make dest dir recursively
     [os.makedirs(x) for x in (positive_dest, negative_dest,
                               part_dest) if not os.path.exists(x)]
 
     positive_meta_file = open(os.path.join(
-        positive_dest, 'pnet_meta.csv'), 'w')
-    part_meta_file = open(os.path.join(part_dest, 'pnet_meta.csv'), 'w')
+        pnet_data_folder, 'pnet_positive_meta.csv'), 'w')
+    part_meta_file = open(os.path.join(pnet_data_folder, 'pnet_part_meta.csv'), 'w')
     negative_meta_file = open(os.path.join(
-        negative_dest, 'pnet_meta.csv'), 'w')
-
-    # Declare three list to store cropped images
-    positive_image = []
-    part_image = []
-    negative_image = []
+        pnet_data_folder, 'pnet_negative_meta.csv'), 'w')
 
     print("Start generate training data for pnet.")
     bar = progressbar.ProgressBar(max_value=len(meta_data) - 1)
@@ -113,10 +114,10 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 resized_im = cv2.resize(cropped_im, (crop_size, crop_size),
                                         interpolation=cv2.INTER_LINEAR)
 
-                negative_image.append(resized_im)
-                negative_meta_file.write(','.join(['0', '0', '0', '0']) + '\n')
-
                 neg_num += 1
+
+                negative_meta_file.write(','.join([str(neg_num) + '.jpg']) + '\n')
+                cv2.imwrite(os.path.join(negative_dest, str(neg_num) + '.jpg'), resized_im)
 
         for box in boxes:
             # box (x_left, y_top, x_right, y_bottom)
@@ -150,9 +151,9 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
 
                 if np.max(Iou) < 0.3:
                     # Iou with all gts must below 0.3
-                    negative_image.append(resized_im)
-                    negative_meta_file.write(','.join(['0', '0', '0', '0']) + '\n')
                     neg_num += 1
+                    negative_meta_file.write(','.join([str(neg_num) + '.jpg']) + '\n')
+                    cv2.imwrite(os.path.join(negative_dest, str(neg_num) + '.jpg'), resized_im)
 
             # generate positive examples and part faces
             for i in range(20):
@@ -183,26 +184,20 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
 
                 box_ = box.reshape(1, -1)
                 if IoU(crop_box, box_) >= 0.65:
-                    positive_image.append(resized_im)
-                    positive_meta_file.write(
-                        ','.join([str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     pos_num += 1
-                elif IoU(crop_box, box_) >= 0.4:
-                    part_image.append(resized_im)
-                    part_meta_file.write(
-                        ','.join([str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
-                    part_num += 1
-        # print("%s images done, pos: %s part: %s neg: %s" %
-        #             (index, pos_num, part_num, neg_num))
+                    positive_meta_file.write(
+                        ','.join([str(pos_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
 
+                    cv2.imwrite(os.path.join(positive_dest, str(pos_num) + '.jpg'), resized_im)
+
+                elif IoU(crop_box, box_) >= 0.4:
+                    part_num += 1
+                    part_meta_file.write(
+                        ','.join([str(pos_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                    
+                    cv2.imwrite(os.path.join(part_dest, str(part_num) + '.jpg'), resized_im)
     bar.update()
     print("\nDone")
 
     # Close the meta data files
     [x.close() for x in (positive_meta_file, part_meta_file, negative_meta_file)]
-
-    # Save the cropped images
-    image_matrixs = map(lambda x: np.stack(
-        x), [positive_image, part_image, negative_image])
-    [np.save(os.path.join(x[0], 'pnet_image_matrix.npy'), x[1])
-     for x in zip([positive_dest, part_dest, negative_dest], image_matrixs)]
