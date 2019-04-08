@@ -34,7 +34,7 @@ source activate face_detection
 ### Installation dependency package
 
 ```bash
-pip install opencv-python numpy easydict Cython progressbar2 torch
+pip install opencv-python numpy easydict Cython progressbar2 torch tensorboardX
 ```
 
 If you have gpu on your mechine, you can follow the [official instruction](https://pytorch.org/) and install pytorch gpu version.
