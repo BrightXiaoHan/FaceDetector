@@ -27,15 +27,19 @@ def get_training_data_for_pnet(output_folder):
     negative_dest = os.path.join(output_folder, 'pnet', 'negative')
     part_dest = os.path.join(output_folder, 'pnet', 'part')
 
-    dests = [positive_dest, negative_dest, part_dest]
-
-    # locate target files
-    meta_files = [os.path.join(x, 'pnet_meta.csv') for x in dests]
-    image_files = [os.path.join(x, 'pnet_image_matrix.npy') for x in dests]
+    positive_meta_file = os.path.join(output_folder, 'pnet', 'pnet_positive_meta.csv')
+    part_meta_file = os.path.join(output_folder, 'pnet', 'pnet_part_meta.csv')
+    negative_meta_file = os.path.join(output_folder, 'pnet', 'pnet_negative_meta.csv')
 
     # load from disk to menmory
-    meta_data = [pd.read_csv(x, header=None).as_matrix() for x in meta_files]
-    images = [np.load(x) for x in image_files]
+    positive_meta = np.array(pd.read_csv(positive_meta_file))
+    positive_meta[:, 0] = [os.path.join(positive_dest, i) for i in positive_meta[:, 0]]
+
+    part_meta = np.array(pd.read_csv(part_meta_file))
+    part_meta_file[:, 0] = [os.path.join(part_meta_file, i) for i in part_meta[:, 0]]
+
+    negative_meta = np.array(pd.read_csv(negative_meta_file))
+    negative_meta_file[:, 0] = [os.path.join(negative_meta_file, i) for i in negative_meta[:, 0]]
 
     return images, meta_data
 
@@ -71,6 +75,10 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
 
     print("Start generate training data for pnet.")
     bar = progressbar.ProgressBar(max_value=len(meta_data) - 1)
+
+    total_pos_num = 0
+    total_neg_num = 0
+    total_part_num = 0
 
     # Traverse all images in training set.
     for index, item in enumerate(meta_data):
@@ -114,10 +122,11 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 resized_im = cv2.resize(cropped_im, (crop_size, crop_size),
                                         interpolation=cv2.INTER_LINEAR)
 
+                total_neg_num += 1
                 neg_num += 1
 
-                negative_meta_file.write(','.join([str(neg_num) + '.jpg']) + '\n')
-                cv2.imwrite(os.path.join(negative_dest, str(neg_num) + '.jpg'), resized_im)
+                negative_meta_file.write(','.join([str(total_neg_num) + '.jpg']) + '\n')
+                cv2.imwrite(os.path.join(negative_dest, str(total_neg_num) + '.jpg'), resized_im)
 
         for box in boxes:
             # box (x_left, y_top, x_right, y_bottom)
@@ -152,8 +161,9 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 if np.max(Iou) < 0.3:
                     # Iou with all gts must below 0.3
                     neg_num += 1
-                    negative_meta_file.write(','.join([str(neg_num) + '.jpg']) + '\n')
-                    cv2.imwrite(os.path.join(negative_dest, str(neg_num) + '.jpg'), resized_im)
+                    total_neg_num += 1
+                    negative_meta_file.write(','.join([str(total_neg_num) + '.jpg']) + '\n')
+                    cv2.imwrite(os.path.join(negative_dest, str(total_neg_num) + '.jpg'), resized_im)
 
             # generate positive examples and part faces
             for i in range(20):
@@ -185,17 +195,20 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                 box_ = box.reshape(1, -1)
                 if IoU(crop_box, box_) >= 0.65:
                     pos_num += 1
+                    total_pos_num += 1
                     positive_meta_file.write(
-                        ','.join([str(pos_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                        ','.join([str(total_pos_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
 
-                    cv2.imwrite(os.path.join(positive_dest, str(pos_num) + '.jpg'), resized_im)
+                    cv2.imwrite(os.path.join(positive_dest, str(total_pos_num) + '.jpg'), resized_im)
+
 
                 elif IoU(crop_box, box_) >= 0.4:
                     part_num += 1
+                    total_part_num += 1
                     part_meta_file.write(
-                        ','.join([str(pos_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                        ','.join([str(total_part_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
                     
-                    cv2.imwrite(os.path.join(part_dest, str(part_num) + '.jpg'), resized_im)
+                    cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), resized_im)
     bar.update()
     print("\nDone")
 

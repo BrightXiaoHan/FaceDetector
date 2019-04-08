@@ -78,7 +78,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
             
             total_num += 1
             cv2.imwrite(os.path.join(image_output_folder, str(total_num) + '.jpg'), face_img)
-            landmark_meta_file.write('str(total_num)' + '.jpg, ')
+            landmark_meta_file.write(str(total_num) + '.jpg, ')
             landmark_meta_file.write(','.join([str(i) for i in landmark_gt]))
             landmark_meta_file.write('\n')
 
@@ -110,15 +110,14 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
                 if iou > 0.65:
                     landmark_croppedx = (landmark[:, 0] - nx1) / bbox_size
                     landmark_croppedy = (landmark[:, 1] - ny1) / bbox_size
-                    landmark_gt = np.stack(
-                        [landmark_croppedx, landmark_croppedy], 1)
-
+                    landmark_gt = np.concatenate(
+                        [landmark_croppedx, landmark_croppedy]).tolist()
                     cropped_img = img[ny1: ny2, nx1: nx2]
                     cropped_img = cv2.resize(cropped_img, (size, size))
 
                     total_num += 1
                     cv2.imwrite(os.path.join(image_output_folder, str(total_num) + '.jpg'), cropped_img)
-                    landmark_meta_file.write('str(total_num)' + '.jpg, ')
+                    landmark_meta_file.write(str(total_num) + '.jpg, ')
                     landmark_meta_file.write(','.join([str(i) for i in landmark_gt]))
                     landmark_meta_file.write('\n')
 
