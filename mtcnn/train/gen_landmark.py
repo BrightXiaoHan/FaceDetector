@@ -19,10 +19,10 @@ class LandmarkData(object):
         self.landmarks = landmarks
 
 
-def get_landmark_data(output_folder, suffix='landmarks'):
+def get_landmark_data(output_folder, suffix=''):
     
-    image_file_folder = os.path.join(output_folder, suffix)
-    meta_file = os.path.join(output_folder, 'landmarks_meta.csv')
+    image_file_folder = os.path.join(output_folder, suffix, 'landmarks')
+    meta_file = os.path.join(output_folder, suffix, 'landmarks_meta.csv')
 
     meta = pd.read_csv(meta_file)
     images = [os.path.join(image_file_folder, i) for i in meta.iloc[:, 0]]
@@ -32,7 +32,7 @@ def get_landmark_data(output_folder, suffix='landmarks'):
 
 
 
-def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmarks'):
+def gen_landmark_data(meta, size, output_folder, argument=False, suffix=''):
     """For training MTCNN, generate data for facial landmark localization task. 
     The Generated file will be saved in "output_folder"
 
@@ -44,12 +44,12 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix='landmar
     """
     total_num = 0
     
-    image_output_folder = os.path.join(output_folder, suffix)
+    image_output_folder = os.path.join(output_folder, suffix, 'landmarks')
     if os.path.exists(image_output_folder):
         shutil.rmtree(image_output_folder)
     
     os.makedirs(image_output_folder)
-    landmark_meta_file = open(os.path.join(output_folder, "landmarks_meta.csv"), 'w')
+    landmark_meta_file = open(os.path.join(output_folder, suffix, "landmarks_meta.csv"), 'w')
 
     bar = progressbar.ProgressBar(max_value=len(meta) - 1)
 

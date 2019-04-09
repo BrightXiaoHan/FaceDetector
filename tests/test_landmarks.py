@@ -21,16 +21,16 @@ class TestGenLandmarks(unittest.TestCase):
 
     def setUp(self):
         self.datasets = get_by_name(DEFAULT_DATASET)
-        self.output_folder = os.path.join(here, '../output/test/pnet')
+        self.output_folder = os.path.join(here, '../output/test')
         self.top = 100
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
         meta = random.choices(meta, k=self.top)
-        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True)
+        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True, suffix='pnet')
 
     def test_get_landmark_data(self):
-        data = gl.get_landmark_data(self.output_folder)
+        data = gl.get_landmark_data(self.output_folder, suffix='pnet')
 
         images, landmarks = data.images, data.landmarks
 

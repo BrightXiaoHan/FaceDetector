@@ -16,7 +16,7 @@ args = parser.parse_args()
 
 landmarks_dataset = get_by_name(args.landmarks_dataset)
 landmarks_meta = landmarks_dataset.get_train_meta()
-gl.gen_landmark_data(landmarks_meta, 12, args.output_folder, argument=True)
+gl.gen_landmark_data(landmarks_meta, 12, args.output_folder, argument=True, suffix='pnet')
 
 detection_dataset = get_by_name(args.detection_dataset)
 detection_meta = detection_dataset.get_train_meta()
