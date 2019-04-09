@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 import mtcnn.train.gen_landmark as landm
@@ -5,99 +6,114 @@ import mtcnn.train.gen_pnet_train as pnet
 import mtcnn.utils.functional as func
 
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-
-
-def get_data_loader(output_folder, net_stage, batch_size):
-    transform = transforms.Compose([ToTensor()])
-    dataset = MtcnnDataset(output_folder, net_stage, transform=transform)
-
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, drop_last=True)
-    return dataloader
-
-def collate_fn(sameples):
-    images = torch.stack([i[0] for i in sameples])
-    labels = torch.stack([i[1] for i in sameples])
-    boxes = torch.stack([i[2] for i in sameples])
-    landmarks = torch.stack([i[3] for i in sameples])    
-    return images, labels, boxes, landmarks
-
 
 class ToTensor(object):
 
     def __call__(self, sample):
+        sample[0] = cv2.imread(sample[0])
+        # Convert image from rgb to bgr for Compatible with original caffe model.
+        sample[0] = cv2.cvtColor(sample[0], cv2.COLOR_RGB2BGR)
         sample[0] = sample[0].transpose((2, 0, 1))
         sample[0] = func.imnormalize(sample[0])
+        sample[0] = torch.tensor(sample[0], dtype=torch.float)
 
-        sample = [torch.tensor(i, dtype=torch.float32) for i in sample]
-        sample[1] = sample[1].long()
+        sample[1] = torch.tensor(sample[1], dtype=torch.float)
+
         return sample
 
+class ImageMetaDataset(Dataset):
 
-class MtcnnDataset(Dataset):
+    def __init__(self, image, meta=None):
+        self.image = image
+        self.meta = meta
+        self.transform = ToTensor()
+
+    def __len__(self):
+        return len(self.image)
+
+    def __getitem__(self, index):
+
+        if self.meta is None:
+            # negative data has no bounding box regression labels. 
+            sample = [self.image[index], np.zeros((4,))]
+
+        else:
+            sample = [self.image[index], self.meta[index]]
+        
+        return self.transform(sample)
+
+class MtcnnDataset(object):
     """
     Dataset for training MTCNN.
     """
 
-    def __init__(self, output_folder, net_stage, transform=None):
+    def __init__(self, output_folder, net_stage, batch_size):
         """
         Put things together. The structure of 'output_folder' looks like this:
 
         output_folder/
         ├── landmarks (generate by 'gen_landmark_data' method.)
-        │   ├── image_matrix.npy
-        │   └── landmarks.npy
+        │   ├── 1.jpg
+        │   └── 2.jpg
         ├── negative  (neg, part, pos generate by 'generate_training_data_for_pnet' method)
-        │   ├── pnet_image_matrix.npy
-        │   └── pnet_meta.csv
+        │   ├── 1.jpg
+        │   └── 2.jpg
         ├── part
-        │   ├── pnet_image_matrix.npy
-        │   └── pnet_meta.csv
-        └── positive
-            ├── pnet_image_matrix.npy
-            └── pnet_meta.csv
+        │   ├── 1.jpg
+        │   └── 2.jpg
+        ├── positive
+        ├──   ├── 1.jpg
+        ├──   └── 2.jpg
+        ├── pnet_negative_meta.csv
+        ├── pnet_part_meta.csv
+        └── pnet_positive_meta.csv
+
         net_stage is one of 'pnet', 'rnet' and 'onet'
         """
-        self.transform = transform
 
-        # get classification and box regression tasks data
+        self.batch_size = batch_size
+        # get classification and regression tasks data
         if net_stage == 'pnet':
             # get landmarks data
-            landmark_image, landmark_meta = landm.get_landmark_data(
-                output_folder, suffix='pnet/landmarks')
-            landmark_meta = np.reshape(landmark_meta, (-1, 10))
-            (pos_img, neg_img, part_img), (pos_meta, neg_meta,
-                                           part_meta) = pnet.get_training_data_for_pnet(output_folder)
+            self.landmark_data = landm.get_landmark_data(
+                output_folder, suffix='pnet')
+            self.data = pnet.get_training_data_for_pnet(output_folder)
         elif net_stage == 'rnet':
-            pass
+            pass  # TODO
         elif net_stage == 'onet':
-            pass
+            pass  # TODO
         else:
             raise AttributeError(
                 "Parameter 'net_stage' must be one of 'pnet', 'rnet' and 'onet' instead of %s." % net_stage)
 
-        # assemble training data together
-        self.images = np.concatenate(
-            (pos_img, neg_img, part_img, landmark_image))
+        self.pos = ImageMetaDataset(self.data.pos, self.data.pos_reg)
+        self.part = ImageMetaDataset(self.data.part, self.data.part_reg)
+        self.neg = ImageMetaDataset(self.data.neg)
+        self.landm = ImageMetaDataset(self.landmark_data.images, self.landmark_data.landmarks)
 
-        # Give label 0 to neg, 1 to pos, 2 to part, -1 to landmark
-        self.labels = np.concatenate((np.ones(pos_img.shape[0]), np.zeros(
-            neg_img.shape[0]), np.ones(part_img.shape[0])*2, np.ones(landmark_image.shape[0]) * -2)).astype(int)
+        pos_len = len(self.pos)
+        part_len = len(self.part)
+        neg_len = len(self.neg)
+        landm_len = len(self.landm)
 
-        # Ground thruth boxes coordinate
-        self.gt_boxes = np.concatenate(
-            (pos_meta, neg_meta, part_meta, np.zeros((landmark_meta.shape[0], 4))))
+        total_len = pos_len + part_len + neg_len + landm_len
 
-        # Ground thruth landmark
-        self.gt_landm = np.concatenate([np.zeros((pos_img.shape[0], 10)), np.zeros(
-            (neg_img.shape[0], 10)), np.zeros((part_img.shape[0], 10)), landmark_meta])
+        self.pos_batch = int(batch_size * (pos_len / total_len))
+        self.part_batch = int(batch_size * (part_len / total_len))
+        self.neg_batch = int(batch_size * (neg_len / total_len))
+        self.landm_batch = int(batch_size * (landm_len / total_len))
 
-    def __len__(self):
-        return self.images.shape[0]
+    def get_iter(self):
+        pos_loader = DataLoader(self.pos, self.pos_batch, shuffle=True)
+        part_loader = DataLoader(self.part, self.part_batch, shuffle=True)
+        neg_loader = DataLoader(self.neg, self.neg_batch, shuffle=True)
+        landm_loader = DataLoader(self.landm, self.landm_batch, shuffle=True)
 
-    def __getitem__(self, idx):
-        sameple = [self.images[idx], np.array(self.labels[idx]),  # Prevent label degenerate into numbers
-                   self.gt_boxes[idx], self.gt_landm[idx]]
-        if self.transform:
-            sameple = self.transform(sameple)
-        return sameple
+        transform = ToTensor()
+
+        def generator():
+
+            for i in zip(pos_loader, part_loader, neg_loader, landm_loader):
+                yield i
+
+        return generator()
