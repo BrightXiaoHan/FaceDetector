@@ -27,7 +27,7 @@ class TestGenLandmarks(unittest.TestCase):
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
         meta = random.choices(meta, k=self.top)
-        gl.gen_landmark_data(meta, 48, self.output_folder, argument=True, suffix='pnet')
+        gl.gen_landmark_data(meta, 12, self.output_folder, argument=True, suffix='pnet')
 
     def test_get_landmark_data(self):
         data = gl.get_landmark_data(self.output_folder, suffix='pnet')

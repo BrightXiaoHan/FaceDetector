@@ -27,7 +27,7 @@ class TestGenTrain(unittest.TestCase):
         meta = self.dataset.get_train_meta()
         meta = random.choices(meta, k=self.top)
         gptd.generate_training_data_for_pnet(
-            meta, output_folder=self.output_folder, crop_size=48)
+            meta, output_folder=self.output_folder, crop_size=12)
 
     def test_get_pnet_train(self):
         pnet_data = gptd.get_training_data_for_pnet(self.output_folder)

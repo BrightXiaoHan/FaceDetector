@@ -1,9 +1,8 @@
 import torch
 import progressbar
 
-from tensorboardX import SummaryWriter
 from mtcnn.network.mtcnn_pytorch import PNet, RNet, ONet
-from mtcnn.train.data import get_data_loader
+from mtcnn.train.data import MtcnnDataset
 
 class Trainer(object):
 
@@ -20,36 +19,54 @@ class Trainer(object):
         else:
             raise AttributeError("Don't support optimizer named %s." % optimizer)
 
-        self.writer = SummaryWriter()
         self.globle_step = 0
         self.epoch_num = 0
 
         
-
     def train(self, num_epoch, batch_size, data_folder):
+        dataset = MtcnnDataset(data_folder, self.net_stage, batch_size)
+
         for i in range(num_epoch):
-            loader = get_data_loader(data_folder, self.net_stage, batch_size)
-            self._train_epoch(loader)
+            data_iter = dataset.get_iter()
+            self._train_epoch(data_iter)
             
 
-    def _train_epoch(self, dataloader):
+    def _train_epoch(self, data_iter):
 
-        for batch in dataloader:
+        for batch in data_iter:
             loss = self._train_batch(batch)
             self.globle_step += 1
-            self.writer.add_scalar("Loss", loss, self.globle_step)
 
     def _train_batch(self, batch):
-        images = batch[0].to(self.device)
 
-        labels = batch[1].to(self.device)
-        boxes = batch[2].to(self.device)
-        landmarks = batch[3].to(self.device)
+        # assemble batch
+        (pos_img, pos_reg), (part_img, part_reg), (neg_img, neg_reg), (landm_img, landm_reg) = batch
 
+        # stack all images together
+        images = torch.cat([pos_img, part_img, neg_img, landm_img]).to(self.device)
+
+        # create labels for each image. 0 (neg), 1 (pos), 2 (part), 3(landmark)
+        pos_label = torch.ones(pos_img.shape[0], dtype=torch.long)
+        part_label = torch.ones(part_img.shape[0], dtype=torch.long) * 2
+        neg_label = torch.zeros(neg_img.shape[0], dtype=torch.long)
+        landm_label = torch.ones(landm_img.shape[0], dtype=torch.long) * 3
+
+        labels = torch.cat([pos_label, part_label, neg_label, landm_label]).to(self.device)
+
+        # stack boxes reg
+        fake_landm_data_box_reg = torch.zeros((landm_img.shape[0], 4), dtype=torch.float)
+        boxes_reg = torch.cat([pos_reg, part_reg, neg_reg, fake_landm_data_box_reg]).to(self.device)
+
+        # stack landmarks reg
+        fake_data_landm_reg = torch.zeros((pos_label.shape[0] + part_label.shape[0] + neg_label.shape[0], 10), dtype=torch.float)
+        landmarks = torch.cat([fake_data_landm_reg, landm_reg]).to(self.device)
+
+        # train step
         self.optimizer.zero_grad()
-        loss = self.net.get_loss(images, labels, boxes, landmarks)
+        loss = self.net.get_loss(images, labels, boxes_reg, landmarks)
         loss.backward()
-        self.optimizer.step()
+        self.optimizer.step
+
         print(loss)
         return loss
 
