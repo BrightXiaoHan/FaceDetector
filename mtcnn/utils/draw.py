@@ -4,7 +4,7 @@ Some useful function for visualize bounding box and face landmarks.
 import cv2
 
 
-def draw_boxes(img, boxes):
+def draw_boxes(img, boxes, color=(255, 0, 0)):
     """Draw bounding boxes on original image.
 
     Args:
@@ -13,11 +13,11 @@ def draw_boxes(img, boxes):
     """
     for box in boxes:
         # Default draw red box on it.
-        cv2.rectangle(img, (box[0], box[1]), (box[0]+box[2], box[1]+box[3]), (255, 0, 0))
+        cv2.rectangle(img, (box[0], box[1]), (box[0]+box[2], box[1]+box[3]), color)
     
     return img
 
-def draw_boxes2(img, boxes):
+def draw_boxes2(img, boxes, color=(255, 0, 0)):
     """Draw bounding boxes on original image.
 
     Args:
@@ -26,7 +26,7 @@ def draw_boxes2(img, boxes):
     """
     for box in boxes:
         # Default draw red box on it.
-        cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), (255, 0, 0))
+        cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), color)
     
     return img
 
@@ -49,7 +49,7 @@ def crop(img, boxes, landmarks=None):
     return img_list
 
 
-def draw_landmarks(img, landmarks):
+def draw_landmarks(img, landmarks, color=(0, 0, 255)):
     """Draw points on original image.
     
     Args:
@@ -59,14 +59,14 @@ def draw_landmarks(img, landmarks):
     for point in landmarks:
         
         # Default draw blue point on it
-        cv2.circle(img, tuple(point), 2, (0, 0, 255))
+        cv2.circle(img, tuple(point), 2, color)
 
     
     return img
 
-def batch_draw_landmarks(img, batch_landmarks):
+def batch_draw_landmarks(img, batch_landmarks, color=(0, 0, 255)):
 
     for landmarks in batch_landmarks:
-        draw_landmarks(img, landmarks)
+        draw_landmarks(img, landmarks, color)
     
     return img
