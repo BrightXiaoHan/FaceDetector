@@ -26,7 +26,7 @@ def get_landmark_data(output_folder, suffix=''):
 
     meta = pd.read_csv(meta_file)
     images = [os.path.join(image_file_folder, i) for i in meta.iloc[:, 0]]
-    landmarks = np.array(meta.iloc[:, 1:])
+    landmarks = np.array(meta.iloc[:, 1:]).astype(float)
     
     return LandmarkData(images, landmarks)
 
