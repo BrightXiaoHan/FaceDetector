@@ -65,7 +65,7 @@ class _Net(nn.Module):
             gt_boxes {Tensor} -- Ground truth boxes coordinate.
 
         Returns:
-            Tensor -- classification loss + box regression loss
+            Tensor -- classification loss + box regression loss + landmark loss
         """
         if not self.is_train:
             raise AssertionError(

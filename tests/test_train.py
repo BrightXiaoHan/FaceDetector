@@ -5,7 +5,7 @@ class TestTrain(unittest.TestCase):
 
     def test_train_pnet(self):
         trainer = Trainer('pnet', device='cuda:0')
-        trainer.train(10, 256, './output/data_train')
+        trainer.train(100, 256, './output/test')
     
 
 if __name__ == "__main__":
