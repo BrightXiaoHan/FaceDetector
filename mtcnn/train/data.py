@@ -116,4 +116,6 @@ class MtcnnDataset(object):
             for i in zip(pos_loader, part_loader, neg_loader, landm_loader):
                 yield i
 
-        return generator()
+        total_batch = min([len(pos_loader), len(part_loader), len(neg_loader), len(landm_loader)])
+
+        return generator(), total_batch

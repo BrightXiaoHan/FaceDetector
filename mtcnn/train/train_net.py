@@ -31,13 +31,13 @@ class Trainer(object):
 
         for i in range(num_epoch):
             print("Training epoch %d ......" % self.epoch_num)
-            data_iter = dataset.get_iter()
-            self._train_epoch(data_iter)
+            data_iter, total_batch = dataset.get_iter()
+            self._train_epoch(data_iter, total_batch)
             print("Training epoch %d done." % self.epoch_num)
 
             print("Evaluate on training data...")
-            data_iter = dataset.get_iter()
-            acc, avg_box_loss, avg_landmark_loss = self.eval(data_iter)
+            data_iter, total_batch = dataset.get_iter()
+            acc, avg_box_loss, avg_landmark_loss = self.eval(data_iter, total_batch)
             print("Epoch %d: acc %f, avg_box_loss %f, avg_landmark_loss %f" % (self.epoch_num, acc, avg_box_loss, avg_landmark_loss))
 
             self.writer.add_scalar('train/acc', acc, global_step=self.epoch_num)
@@ -46,12 +46,18 @@ class Trainer(object):
 
             self.epoch_num += 1
 
-    def _train_epoch(self, data_iter):
+    def _train_epoch(self, data_iter, total_batch):
+        
+        bar = progressbar.ProgressBar(max_value=total_batch)
 
-        for batch in data_iter:
+        for i, batch in enumerate(data_iter):
+            bar.update(i)
+
             loss = self._train_batch(batch)
             self.writer.add_scalar('train/batch_loss', loss, global_step=self.globle_step)
             self.globle_step += 1
+
+        bar.update(total_batch)    
 
     def _train_batch(self, batch):
 
@@ -92,14 +98,18 @@ class Trainer(object):
 
         return images, labels, boxes_reg, landmarks
     
-    def eval(self, data_iter):
+    def eval(self, data_iter, total_batch):
         total = 0
         right = 0
 
         total_box_loss = 0
         total_landmark_loss = 0
 
+        bar = progressbar.ProgressBar(max_value=total_batch)
+
         for i, batch in enumerate(data_iter):
+            bar.update(i)
+
             # assemble batch
             images, gt_label, gt_boxes, gt_landmarks = self._assemble_batch(batch)
             
@@ -123,6 +133,7 @@ class Trainer(object):
             total_landmark_loss += self.net.landmark_loss(
                 gt_label, gt_landmarks, pred_landmarks)
 
+        bar.update(total_batch)
 
         acc = right.float() / total
         avg_box_loss = total_box_loss / i
