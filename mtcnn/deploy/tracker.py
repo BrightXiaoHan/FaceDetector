@@ -10,7 +10,7 @@ from easydict import EasyDict
 
 class FaceTracker(object):
 
-    def __init__(self, detector, re_detect_every=10, min_interval=2, iou_thres=0.7):
+    def __init__(self, detector, re_detect_every=10, min_interval=2, iou_thres=0.3):
         """Set hyper parameters for FaceTracker
         
         Keyword Arguments:
