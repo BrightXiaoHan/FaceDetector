@@ -1,4 +1,6 @@
+import os
 import torch
+import glob
 import progressbar
 
 from mtcnn.network.mtcnn_pytorch import PNet, RNet, ONet
@@ -7,10 +9,11 @@ from tensorboardX import SummaryWriter
 
 class Trainer(object):
 
-    def __init__(self, net_stage, optimizer="SGD", device='cpu', log_dir='./runs'):
+    def __init__(self, net_stage, optimizer="SGD", device='cpu', log_dir='./runs', output_folder='./runs', resume=True):
         
         self.net_stage = net_stage
         self.device = device
+        self.output_folder = output_folder
         
         if net_stage == 'pnet':
             self.net = PNet(is_train=True, device=self.device)
@@ -23,13 +26,16 @@ class Trainer(object):
         self.globle_step = 1
         self.epoch_num = 1
 
-        self.writer = SummaryWriter(log_dir=log_dir)
+        if resume:
+            self.load_state_dict()
+
+        self.writer = SummaryWriter(log_dir=log_dir, purge_step=self.epoch_num)
 
         
     def train(self, num_epoch, batch_size, data_folder):
         dataset = MtcnnDataset(data_folder, self.net_stage, batch_size)
 
-        for i in range(num_epoch):
+        for i in range(num_epoch - self.epoch_num):
             print("Training epoch %d ......" % self.epoch_num)
             data_iter, total_batch = dataset.get_iter()
             self._train_epoch(data_iter, total_batch)
@@ -44,6 +50,8 @@ class Trainer(object):
             self.writer.add_scalar('train/avg_box_loss', avg_box_loss, global_step=self.epoch_num)
             self.writer.add_scalar('train/avg_landmark_loss', avg_landmark_loss, global_step=self.epoch_num)
 
+            self.save_state_dict()
+
             self.epoch_num += 1
 
     def _train_epoch(self, data_iter, total_batch):
@@ -54,7 +62,7 @@ class Trainer(object):
             bar.update(i)
 
             loss = self._train_batch(batch)
-            self.writer.add_scalar('train/batch_loss', loss, global_step=self.globle_step)
+            self.writer.add_scalar('train/batch_loss', loss, global_step=self.epoch_num)
             self.globle_step += 1
 
         bar.update(total_batch)    
@@ -141,3 +149,29 @@ class Trainer(object):
 
         return acc, avg_box_loss, avg_landmark_loss    
 
+
+    def save_state_dict(self):
+        checkpoint_name = "checkpoint_epoch_%d" % self.epoch_num
+        file_path = os.path.join(self.output_folder, checkpoint_name)
+
+        state = {
+            'epoch_num': self.epoch_num,
+            'state_dict': self.net.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+        }
+        torch.save(state, file_path)
+
+    def load_state_dict(self):
+
+        # Get the latest checkpoint in output_folder
+        all_checkpoints = glob.glob(os.path.join(self.output_folder, 'checkpoint_epoch_*'))
+
+        if len(all_checkpoints) > 0:
+            epoch_nums = [int(i.split('_')[-1]) for i in all_checkpoints]
+            max_index = epoch_nums.index(max(epoch_nums))
+            latest_checkpoint = all_checkpoints[max_index]
+
+            state = torch.load(latest_checkpoint)
+            self.epoch_num = state['epoch_num']
+            self.net.load_state_dict(state['state_dict'])
+            self.optimizer.load_state_dict(state['optimizer']) 
