@@ -104,10 +104,10 @@ class MtcnnDataset(object):
         self.landm_batch = int(batch_size * (landm_len / total_len))
 
     def get_iter(self):
-        pos_loader = DataLoader(self.pos, self.pos_batch, shuffle=True)
-        part_loader = DataLoader(self.part, self.part_batch, shuffle=True)
-        neg_loader = DataLoader(self.neg, self.neg_batch, shuffle=True)
-        landm_loader = DataLoader(self.landm, self.landm_batch, shuffle=True)
+        pos_loader = DataLoader(self.pos, self.pos_batch, shuffle=True, num_workers=4)
+        part_loader = DataLoader(self.part, self.part_batch, shuffle=True, num_workers=4)
+        neg_loader = DataLoader(self.neg, self.neg_batch, shuffle=True, num_workers=4)
+        landm_loader = DataLoader(self.landm, self.landm_batch, shuffle=True, num_workers=4)
 
         transform = ToTensor()
 
