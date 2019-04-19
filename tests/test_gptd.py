@@ -28,8 +28,10 @@ class TestGenTrain(unittest.TestCase):
         meta = random.choices(meta, k=self.top)
         gptd.generate_training_data_for_pnet(
             meta, output_folder=self.output_folder, crop_size=12)
+        eval_meta = self.dataset.get_val_meta()
+        eval_meta = random.choices(eval_meta, k=self.top)
+        gptd.generate_training_data_for_pnet(eval_meta, output_folder=self.output_folder, crop_size=12, suffix='pnet_eval')
 
     def test_get_pnet_train(self):
-        pnet_data = gptd.get_training_data_for_pnet(self.output_folder)
-        
-        part, part_reg = pnet_data.part, pnet_data.part_reg
+        pnet_data = gptd.get_training_data_for_pnet(self.output_folder, suffix='pnet')
+        pnet_eval_data = gptd.get_training_data_for_pnet(self.output_folder, suffix='pnet_eval')

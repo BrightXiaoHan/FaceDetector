@@ -69,6 +69,11 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix=''):
             top = bbox[1]
             w = bbox[2]
             h = bbox[3]
+
+            # there is error data in datasets
+            if w <= 0 or h <= 0:
+                continue
+
             right = bbox[0]+w+1
             bottom = bbox[1]+h+1
 

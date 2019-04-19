@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 
 class Trainer(object):
 
-    def __init__(self, net_stage, optimizer="SGD", device='cpu', log_dir='./runs', output_folder='./runs', resume=True):
+    def __init__(self, net_stage, optimizer="SGD", device='cpu', log_dir='./runs', output_folder='./runs', resume=False):
         
         self.net_stage = net_stage
         self.device = device
@@ -19,7 +19,8 @@ class Trainer(object):
             self.net = PNet(is_train=True, device=self.device)
         
         if optimizer is "SGD":
-            self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
+            # self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
+            self.optimizer = torch.optim.Adam(self.net.parameters())
         else:
             raise AttributeError("Don't support optimizer named %s." % optimizer)
 
@@ -33,9 +34,10 @@ class Trainer(object):
 
         
     def train(self, num_epoch, batch_size, data_folder):
-        dataset = MtcnnDataset(data_folder, self.net_stage, batch_size)
+        dataset = MtcnnDataset(data_folder, self.net_stage, batch_size, suffix=self.net_stage)
+        eval_dataset = MtcnnDataset(data_folder, self.net_stage, batch_size, suffix=self.net_stage+'_eval')
 
-        for i in range(num_epoch - self.epoch_num):
+        for i in range(num_epoch - self.epoch_num + 1):
             print("Training epoch %d ......" % self.epoch_num)
             data_iter, total_batch = dataset.get_iter()
             self._train_epoch(data_iter, total_batch)
@@ -43,12 +45,23 @@ class Trainer(object):
 
             print("Evaluate on training data...")
             data_iter, total_batch = dataset.get_iter()
-            acc, avg_box_loss, avg_landmark_loss = self.eval(data_iter, total_batch)
-            print("Epoch %d: acc %f, avg_box_loss %f, avg_landmark_loss %f" % (self.epoch_num, acc, avg_box_loss, avg_landmark_loss))
+            result = self.eval(data_iter, total_batch)
+            print("Epoch %d, " % self.epoch_num, "result on training set: acc %f, precision %f, recall %f, f1 %f, avg_cls_loss %f, avg_box_loss %f, avg_landmark_loss %f" % result)
 
-            self.writer.add_scalar('train/acc', acc, global_step=self.epoch_num)
-            self.writer.add_scalar('train/avg_box_loss', avg_box_loss, global_step=self.epoch_num)
-            self.writer.add_scalar('train/avg_landmark_loss', avg_landmark_loss, global_step=self.epoch_num)
+            self.writer.add_scalars("training_set", {
+                i: j for i, j in 
+                zip(["acc", "precision", "recall", "f1", "avg_cls_loss", "avg_box_loss", "avg_landmark_loss"], result)
+            }, global_step=self.epoch_num)
+
+            print("Evaluate on eval data...")
+            data_iter, total_batch = eval_dataset.get_iter()
+            result = self.eval(data_iter, total_batch)
+
+            self.writer.add_scalars("eval_set", {
+                i: j for i, j in 
+                zip(["acc", "precision", "recall", "f1", "avg_cls_loss", "avg_box_loss", "avg_landmark_loss"], result)
+            }, global_step=self.epoch_num)
+            print("Epoch %d, " % self.epoch_num, "result on eval set: acc %f, precision %f, recall %f, f1 %f, avg_cls_loss %f, avg_box_loss %f, avg_landmark_loss %f" % result)
 
             self.save_state_dict()
 
@@ -109,7 +122,12 @@ class Trainer(object):
     def eval(self, data_iter, total_batch):
         total = 0
         right = 0
+        tp = 0  # True positive
+        fp = 0  # False positive
+        fn = 0  # False negative
+        tn = 0  # True negative
 
+        total_cls_loss = 0
         total_box_loss = 0
         total_landmark_loss = 0
 
@@ -130,24 +148,39 @@ class Trainer(object):
             pred_offset = pred_offset.view(-1, 4)
             pred_landmarks = pred_landmarks.view(-1, 10)
 
-            # compute the classification acc
-            pred_label = torch.argmax(pred_label, dim=1)
-            mask = gt_label <= 1
-            right += torch.sum(gt_label[mask] == pred_label[mask])
-            total += gt_label[mask].shape[0]
-        
             # Compute the loss
+            total_cls_loss += self.net.cls_loss(gt_label, pred_label)
             total_box_loss += self.net.box_loss(gt_label, gt_boxes, pred_offset)
             total_landmark_loss += self.net.landmark_loss(
                 gt_label, gt_landmarks, pred_landmarks)
 
+            # compute the classification acc
+            pred_label = torch.argmax(pred_label, dim=1)
+
+            mask = gt_label <= 1
+            right += torch.sum(gt_label[mask] == pred_label[mask])
+            total += gt_label[mask].shape[0]
+        
+            p_mask = gt_label == 1
+            tp += torch.sum(gt_label[p_mask] == pred_label[p_mask])
+            fp += torch.sum(gt_label[p_mask] != pred_label[p_mask])
+
+            n_mask = gt_label == 0
+            tn += torch.sum(gt_label[n_mask] == pred_label[n_mask])
+            fn += torch.sum(gt_label[n_mask] != pred_label[n_mask])
+
         bar.update(total_batch)
 
         acc = right.float() / total
+        precision = tp.float() / (tp + fp)
+        recall = tp.float() / (tp + fn)
+        f1 = 2 * precision * recall / (precision + recall)
+
+        avg_cls_loss = total_cls_loss / i
         avg_box_loss = total_box_loss / i
         avg_landmark_loss = total_landmark_loss / i
 
-        return acc, avg_box_loss, avg_landmark_loss    
+        return acc, precision, recall, f1, avg_cls_loss, avg_box_loss, avg_landmark_loss    
 
 
     def save_state_dict(self):
@@ -161,6 +194,9 @@ class Trainer(object):
         }
         torch.save(state, file_path)
 
+    def export_model(self, filename):
+        torch.save(self.net.state_dict(), filename)
+
     def load_state_dict(self):
 
         # Get the latest checkpoint in output_folder
@@ -172,6 +208,6 @@ class Trainer(object):
             latest_checkpoint = all_checkpoints[max_index]
 
             state = torch.load(latest_checkpoint)
-            self.epoch_num = state['epoch_num']
+            self.epoch_num = state['epoch_num'] + 1
             self.net.load_state_dict(state['state_dict'])
             self.optimizer.load_state_dict(state['optimizer']) 

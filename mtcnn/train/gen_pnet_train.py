@@ -27,7 +27,7 @@ class PnetData(object):
         self.part_reg = part_reg
 
 
-def get_training_data_for_pnet(output_folder):
+def get_training_data_for_pnet(output_folder, suffix='pnet'):
     """Get pnet training data for classification and bounding box regression tasks
 
     Arguments:
@@ -37,13 +37,13 @@ def get_training_data_for_pnet(output_folder):
         {PnetData} -- 'PnetData' object.
     """
 
-    positive_dest = os.path.join(output_folder, 'pnet', 'positive')
-    negative_dest = os.path.join(output_folder, 'pnet', 'negative')
-    part_dest = os.path.join(output_folder, 'pnet', 'part')
+    positive_dest = os.path.join(output_folder, suffix, 'positive')
+    negative_dest = os.path.join(output_folder, suffix, 'negative')
+    part_dest = os.path.join(output_folder, suffix, 'part')
 
-    positive_meta_file = os.path.join(output_folder, 'pnet', 'pnet_positive_meta.csv')
-    part_meta_file = os.path.join(output_folder, 'pnet', 'pnet_part_meta.csv')
-    negative_meta_file = os.path.join(output_folder, 'pnet', 'pnet_negative_meta.csv')
+    positive_meta_file = os.path.join(output_folder, suffix, 'pnet_positive_meta.csv')
+    part_meta_file = os.path.join(output_folder, suffix, 'pnet_part_meta.csv')
+    negative_meta_file = os.path.join(output_folder, suffix, 'pnet_negative_meta.csv')
 
     # load from disk to menmory
     positive_meta = pd.read_csv(positive_meta_file)
@@ -60,7 +60,7 @@ def get_training_data_for_pnet(output_folder):
     return PnetData(pos, part, neg, pos_reg, part_reg)
 
 
-def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
+def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12, suffix='pnet'):
     """
     For training P-net, crop positive(0), negative(1) and partface(2) from original images. 
     The Generated file will be saved in "output_folder"
@@ -70,7 +70,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
         output_folder (str): Directory to save the result.
         crop_size (int): image size to crop.
     """
-    pnet_data_folder = os.path.join(output_folder, 'pnet')
+    pnet_data_folder = os.path.join(output_folder, suffix)
 
     positive_dest = os.path.join(pnet_data_folder, 'positive')
     negative_dest = os.path.join(pnet_data_folder, 'negative')
@@ -89,7 +89,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
     negative_meta_file = open(os.path.join(
         pnet_data_folder, 'pnet_negative_meta.csv'), 'w')
 
-    print("Start generate training data for pnet.")
+    # print("Start generate training data for pnet.")
     bar = progressbar.ProgressBar(max_value=len(meta_data) - 1)
 
     total_pos_num = 0
@@ -226,7 +226,7 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12):
                     
                     cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), resized_im)
     bar.update()
-    print("\nDone")
+    # print("\nDone")
 
     # Close the meta data files
     [x.close() for x in (positive_meta_file, part_meta_file, negative_meta_file)]

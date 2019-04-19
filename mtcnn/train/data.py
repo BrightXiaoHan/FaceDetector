@@ -47,7 +47,7 @@ class MtcnnDataset(object):
     Dataset for training MTCNN.
     """
 
-    def __init__(self, output_folder, net_stage, batch_size):
+    def __init__(self, output_folder, net_stage, batch_size, suffix):
         """
         Put things together. The structure of 'output_folder' looks like this:
 
@@ -76,8 +76,8 @@ class MtcnnDataset(object):
         if net_stage == 'pnet':
             # get landmarks data
             self.landmark_data = landm.get_landmark_data(
-                output_folder, suffix='pnet')
-            self.data = pnet.get_training_data_for_pnet(output_folder)
+                output_folder, suffix=suffix)
+            self.data = pnet.get_training_data_for_pnet(output_folder, suffix=suffix)
         elif net_stage == 'rnet':
             pass  # TODO
         elif net_stage == 'onet':
@@ -104,10 +104,10 @@ class MtcnnDataset(object):
         self.landm_batch = int(batch_size * (landm_len / total_len))
 
     def get_iter(self):
-        pos_loader = DataLoader(self.pos, self.pos_batch, shuffle=True, num_workers=4)
-        part_loader = DataLoader(self.part, self.part_batch, shuffle=True, num_workers=4)
-        neg_loader = DataLoader(self.neg, self.neg_batch, shuffle=True, num_workers=4)
-        landm_loader = DataLoader(self.landm, self.landm_batch, shuffle=True, num_workers=4)
+        pos_loader = DataLoader(self.pos, self.pos_batch, shuffle=True)
+        part_loader = DataLoader(self.part, self.part_batch, shuffle=True)
+        neg_loader = DataLoader(self.neg, self.neg_batch, shuffle=True)
+        landm_loader = DataLoader(self.landm, self.landm_batch, shuffle=True)
 
         transform = ToTensor()
 
