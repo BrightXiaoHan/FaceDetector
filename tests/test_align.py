@@ -11,7 +11,7 @@ import mtcnn.deploy.detect as detect
 import mtcnn.utils.draw as draw
 
 from mtcnn.deploy import get_net_caffe
-from mtcnn.deploy.align import align_multi
+from mtcnn.deploy.align import align_multi, filter_side_face
 
 here = os.path.dirname(__file__)
 
@@ -33,5 +33,15 @@ class TestDetection(unittest.TestCase):
             cv2.imshow("Aligned Faces", face)
             cv2.waitKey(0)
 
+    def test_filter_side_face(self):
+        img = cv2.imread(self.test_img)
+        boxes, landmarks = self.detector.detect(self.test_img)
 
+        mask = filter_side_face(boxes, landmarks)
+        boxes, faces = align_multi(img, boxes, landmarks, (92, 112))
+        
+        for m, face in zip(mask, faces):
+            if m == 0:
+                cv2.imshow("Aligned Faces", face)
+                cv2.waitKey(0)
         
