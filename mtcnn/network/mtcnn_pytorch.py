@@ -65,7 +65,7 @@ class _Net(nn.Module):
             gt_boxes {Tensor} -- Ground truth boxes coordinate.
 
         Returns:
-            Tensor -- classification loss + box regression loss
+            Tensor -- classification loss + box regression loss + landmark loss
         """
         if not self.is_train:
             raise AssertionError(
@@ -148,7 +148,7 @@ class _Net(nn.Module):
         pred_landmark = torch.squeeze(pred_landmark)
         gt_landmark = torch.squeeze(gt_landmark)
         gt_label = torch.squeeze(gt_label)
-        mask = torch.eq(gt_label, -1)
+        mask = torch.eq(gt_label, 3)
         # broadcast mask
         mask = torch.stack([mask] * 10, dim=1)
 
@@ -163,6 +163,10 @@ class _Net(nn.Module):
             raise AssertionError("This method is avaliable only when 'is_train' is false.")
         for n, p in self.named_parameters():
             p.data = torch.FloatTensor(weights[n], device="cpu")
+
+    def load(self, model_file):
+        state_dict = torch.load(model_file, map_location=self.device)
+        self.load_state_dict(state_dict, strict=False)
 
     def to_script(self):
         raise NotImplementedError

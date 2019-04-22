@@ -9,7 +9,11 @@ import unittest
 import cv2
 
 from mtcnn.datasets import get_by_name
+from mtcnn import get_net_caffe
 import mtcnn.train.gen_pnet_train as gptd
+import mtcnn.train.gen_rnet_train as grtd
+from mtcnn.train.data import get_training_data
+
 
 DEFAULT_DATASET = 'WiderFace'
 
@@ -22,30 +26,29 @@ class TestGenTrain(unittest.TestCase):
         self.dataset = get_by_name(DEFAULT_DATASET)
         self.output_folder = os.path.join(here, '../output/test')
         self.top = 100
+        self.pnet, self.rnet, _ = get_net_caffe(os.path.join(here, '../output/converted'))
 
     def test_gen_pnet_train(self):
         meta = self.dataset.get_train_meta()
         meta = random.choices(meta, k=self.top)
         gptd.generate_training_data_for_pnet(
-            meta, output_folder=self.output_folder)
+            meta, output_folder=self.output_folder, crop_size=12)
+        eval_meta = self.dataset.get_val_meta()
+        eval_meta = random.choices(eval_meta, k=self.top)
+        gptd.generate_training_data_for_pnet(eval_meta, output_folder=self.output_folder, crop_size=12, suffix='pnet_eval')
 
     def test_get_pnet_train(self):
-        images, meta = gptd.get_training_data_for_pnet(self.output_folder)
-        self.assertEqual(len(images), 3)
-        self.assertEqual(len(meta), 3)
+        pnet_data = get_training_data(self.output_folder, suffix='pnet')
+        pnet_eval_data = get_training_data(self.output_folder, suffix='pnet_eval')
 
-        # Random sampling 100 pictures from "positive", "negative" and "part" examples.
-        output_folder = os.path.join(self.output_folder, 'pnet', 'sample_images')
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
+    def test_gen_rnet_train(self):
+        meta = self.dataset.get_train_meta()
+        meta = random.choices(meta, k=self.top)
+        grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet')
+        eval_meta = self.dataset.get_val_meta()
+        eval_meta = random.choices(eval_meta, k=self.top)
+        grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet_eval')
 
-        for i, (pos, neg, part) in enumerate(zip(*images)):
-            cv2.imwrite(os.path.join(
-                output_folder, 'pos_%d.jpg' % i), pos)
-            cv2.imwrite(os.path.join(
-                output_folder, 'neg_%d.jpg' % i), neg)
-            cv2.imwrite(os.path.join(
-                output_folder, 'part_%d.jpg' % i), part)
-
-            if i > 100:
-                break
+    def test_get_rnet_train(self):
+        rnet_data = get_training_data(self.output_folder, suffix='rnet')
+        rnet_eval = get_training_data(self.output_folder, suffix='rnet_eval')

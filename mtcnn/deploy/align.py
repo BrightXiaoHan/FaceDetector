@@ -7,9 +7,9 @@ def align_multi(img, boxes, landmarks, crop_size=(112, 112)):
     """Align muti-faces in a image
     
     Args:
-        img (np.array or torch.Tensor): Image matrix returned by cv2.imread()
-        boxes (torch.IntTensor): Bounding boxes with shape [n, 4]
-        landmarks (torch.IntTensor): Fatial landmarks points with shape [n, 5, 2] 
+        img (np.ndarray or torch.Tensor): Image matrix returned by cv2.imread()
+        boxes (np.ndarray or torch.IntTensor): Bounding boxes with shape [n, 4]
+        landmarks (np.ndarray or torch.IntTensor): Facial landmarks points with shape [n, 5, 2] 
     """
 
     if isinstance(boxes, torch.Tensor):
@@ -24,6 +24,20 @@ def align_multi(img, boxes, landmarks, crop_size=(112, 112)):
         faces.append(warped_face)
     return boxes, faces
 
+def filter_side_face(boxes, landmarks):
+    """Mask all side face judged through facial landmark points.
+    
+    Args:
+        boxes (torch.IntTensor): Bounding boxes with shape [n, 4]
+        landmarks (or torch.IntTensor): Facial landmarks points with shape [n, 5, 2]
+    
+    Returns:
+        torch.Tensor: Tensor mask.
+    """
+    mid = (boxes[:, 2] + boxes[:, 0]).float() / 2
+    mask =  (landmarks[:, 0, 0].float() - mid) * (landmarks[:, 1, 0].float() - mid) <= 0 
+
+    return mask
 
     
 

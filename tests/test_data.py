@@ -14,12 +14,11 @@ class TestData(unittest.TestCase):
     def setUp(self):
         self.output_folder = os.path.join(here, '../output/test/')
         self.net_stage = 'pnet'
-        self.batch_size = 32
+        self.batch_size = 128
 
     def test_data(self):
-        loader = data.get_data_loader(self.output_folder, self.net_stage, self.batch_size)
-        for batch in loader:
-            self.assertEqual(batch[0].shape[0], self.batch_size)
-            self.assertEqual(tuple(batch[1].shape), (self.batch_size,))
-            self.assertEqual(tuple(batch[2].shape), (self.batch_size, 4))
-            self.assertEqual(tuple(batch[3].shape), (self.batch_size, 10))
+        dataset = data.MtcnnDataset(self.output_folder, self.net_stage, self.batch_size)
+
+        for batch in dataset.get_iter():
+            self.assertEqual(len(batch), 4)
+            print(1)
