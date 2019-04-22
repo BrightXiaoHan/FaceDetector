@@ -12,53 +12,6 @@ from mtcnn.utils.functional import IoU
 
 here = os.path.dirname(__file__)
 
-class PnetData(object):
-    
-    """
-    Define a custom data structure for pnet training data.
-    """
-
-    def __init__(self, pos, part, neg, pos_reg, part_reg):
-
-        self.pos = pos
-        self.part = part
-        self.neg = neg
-        self.pos_reg = pos_reg
-        self.part_reg = part_reg
-
-
-def get_training_data_for_pnet(output_folder, suffix='pnet'):
-    """Get pnet training data for classification and bounding box regression tasks
-
-    Arguments:
-        output_folder {str} -- Consistent with parameter 'output_folder' passed in method "generate_training_data_for_pnet".
-
-    Returns:
-        {PnetData} -- 'PnetData' object.
-    """
-
-    positive_dest = os.path.join(output_folder, suffix, 'positive')
-    negative_dest = os.path.join(output_folder, suffix, 'negative')
-    part_dest = os.path.join(output_folder, suffix, 'part')
-
-    positive_meta_file = os.path.join(output_folder, suffix, 'pnet_positive_meta.csv')
-    part_meta_file = os.path.join(output_folder, suffix, 'pnet_part_meta.csv')
-    negative_meta_file = os.path.join(output_folder, suffix, 'pnet_negative_meta.csv')
-
-    # load from disk to menmory
-    positive_meta = pd.read_csv(positive_meta_file)
-    pos = [os.path.join(part_dest, i) for i in positive_meta.iloc[:, 0]]
-    pos_reg = np.array(positive_meta.iloc[:, 1:])
-
-    part_meta = pd.read_csv(part_meta_file)
-    part = [os.path.join(part_dest, i) for i in part_meta.iloc[:, 0]]
-    part_reg = np.array(part_meta.iloc[:, 1:])
-
-    negative_meta = pd.read_csv(negative_meta_file)
-    neg = [os.path.join(negative_dest, i) for i in negative_meta.iloc[:, 0]]
-
-    return PnetData(pos, part, neg, pos_reg, part_reg)
-
 
 def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12, suffix='pnet'):
     """
@@ -84,10 +37,10 @@ def generate_training_data_for_pnet(meta_data, output_folder, crop_size=12, suff
                               part_dest) if not os.path.exists(x)]
 
     positive_meta_file = open(os.path.join(
-        pnet_data_folder, 'pnet_positive_meta.csv'), 'w')
-    part_meta_file = open(os.path.join(pnet_data_folder, 'pnet_part_meta.csv'), 'w')
+        pnet_data_folder, 'positive_meta.csv'), 'w')
+    part_meta_file = open(os.path.join(pnet_data_folder, 'part_meta.csv'), 'w')
     negative_meta_file = open(os.path.join(
-        pnet_data_folder, 'pnet_negative_meta.csv'), 'w')
+        pnet_data_folder, 'negative_meta.csv'), 'w')
 
     # print("Start generate training data for pnet.")
     bar = progressbar.ProgressBar(max_value=len(meta_data) - 1)

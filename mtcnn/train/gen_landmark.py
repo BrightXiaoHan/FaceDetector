@@ -10,27 +10,6 @@ import numpy.random as npr
 
 from mtcnn.utils.functional import IoU
 
-class LandmarkData(object):
-    """
-    Custom data structure for storing facial landmark points training data.
-    """
-    def __init__(self, images, landmarks):
-        self.images = images
-        self.landmarks = landmarks
-
-
-def get_landmark_data(output_folder, suffix=''):
-    
-    image_file_folder = os.path.join(output_folder, suffix, 'landmarks')
-    meta_file = os.path.join(output_folder, suffix, 'landmarks_meta.csv')
-
-    meta = pd.read_csv(meta_file)
-    images = [os.path.join(image_file_folder, i) for i in meta.iloc[:, 0]]
-    landmarks = np.array(meta.iloc[:, 1:]).astype(float)
-    
-    return LandmarkData(images, landmarks)
-
-
 
 def gen_landmark_data(meta, size, output_folder, argument=False, suffix=''):
     """For training MTCNN, generate data for facial landmark localization task. 

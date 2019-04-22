@@ -20,7 +20,7 @@ def align_multi(img, boxes, landmarks, crop_size=(112, 112)):
         
     faces = []
     for landmark in landmarks:
-        warped_face, _ = warp_and_crop_face(img, landmark, refrence, crop_size=crop_size)
+        warped_face = warp_and_crop_face(img, landmark, refrence, crop_size=crop_size)
         faces.append(warped_face)
     return boxes, faces
 

@@ -10,6 +10,7 @@ import cv2
 
 from mtcnn.datasets import get_by_name
 import mtcnn.train.gen_landmark as gl
+from mtcnn.train.data import get_landmark_data
 from mtcnn.utils import draw
 
 DEFAULT_DATASET = 'CelebA'
@@ -33,7 +34,7 @@ class TestGenLandmarks(unittest.TestCase):
         gl.gen_landmark_data(meta, 12, self.output_folder, argument=False, suffix='pnet')
 
     def test_get_landmark_data(self):
-        data = gl.get_landmark_data(self.output_folder, suffix='pnet')
+        data = get_landmark_data(self.output_folder, suffix='pnet')
 
         images, landmarks = data.images, data.landmarks
 

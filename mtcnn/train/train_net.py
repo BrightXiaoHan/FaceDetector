@@ -18,6 +18,9 @@ class Trainer(object):
         if net_stage == 'pnet':
             self.net = PNet(is_train=True, device=self.device)
         
+        elif net_stage == 'rnet':
+            self.net = RNet(is_train=True, device=self.device)
+        
         if optimizer is "SGD":
             # self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
             self.optimizer = torch.optim.Adam(self.net.parameters())
@@ -202,7 +205,7 @@ class Trainer(object):
         # Get the latest checkpoint in output_folder
         all_checkpoints = glob.glob(os.path.join(self.output_folder, 'checkpoint_epoch_*'))
 
-        if len(all_checkpoints) > 0:
+        if len(all_checkpoints) > 1:
             epoch_nums = [int(i.split('_')[-1]) for i in all_checkpoints]
             max_index = epoch_nums.index(max(epoch_nums))
             latest_checkpoint = all_checkpoints[max_index]

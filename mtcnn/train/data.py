@@ -1,11 +1,81 @@
 import cv2
+import os
+import pandas as pd
 import torch
 import numpy as np
 import mtcnn.train.gen_landmark as landm
 import mtcnn.train.gen_pnet_train as pnet
+import mtcnn.train.gen_rnet_train as rnet
 import mtcnn.utils.functional as func
 
 from torch.utils.data import Dataset, DataLoader
+
+class ClsBoxData(object):
+    
+    """
+    Define a custom data structure training classification task and bounding box regression task.
+    """
+
+    def __init__(self, pos, part, neg, pos_reg, part_reg):
+
+        self.pos = pos
+        self.part = part
+        self.neg = neg
+        self.pos_reg = pos_reg
+        self.part_reg = part_reg
+
+def get_training_data(output_folder, suffix):
+    """Get training data for classification and bounding box regression tasks
+
+    Arguments:
+        output_folder {str} -- Consistent with parameter 'output_folder' passed in method "generate_training_data_for...".
+        suffix {str} -- Create a folder called $suffix in $output_folder.
+    Returns:
+        {PnetData} -- 'PnetData' object.
+    """
+
+    positive_dest = os.path.join(output_folder, suffix, 'positive')
+    negative_dest = os.path.join(output_folder, suffix, 'negative')
+    part_dest = os.path.join(output_folder, suffix, 'part')
+
+    positive_meta_file = os.path.join(output_folder, suffix, 'positive_meta.csv')
+    part_meta_file = os.path.join(output_folder, suffix, 'part_meta.csv')
+    negative_meta_file = os.path.join(output_folder, suffix, 'negative_meta.csv')
+
+    # load from disk to menmory
+    positive_meta = pd.read_csv(positive_meta_file)
+    pos = [os.path.join(part_dest, i) for i in positive_meta.iloc[:, 0]]
+    pos_reg = np.array(positive_meta.iloc[:, 1:])
+
+    part_meta = pd.read_csv(part_meta_file)
+    part = [os.path.join(part_dest, i) for i in part_meta.iloc[:, 0]]
+    part_reg = np.array(part_meta.iloc[:, 1:])
+
+    negative_meta = pd.read_csv(negative_meta_file)
+    neg = [os.path.join(negative_dest, i) for i in negative_meta.iloc[:, 0]]
+
+    return ClsBoxData(pos, part, neg, pos_reg, part_reg)
+
+
+class LandmarkData(object):
+    """
+    Custom data structure for storing facial landmark points training data.
+    """
+    def __init__(self, images, landmarks):
+        self.images = images
+        self.landmarks = landmarks
+
+
+def get_landmark_data(output_folder, suffix=''):
+    
+    image_file_folder = os.path.join(output_folder, suffix, 'landmarks')
+    meta_file = os.path.join(output_folder, suffix, 'landmarks_meta.csv')
+
+    meta = pd.read_csv(meta_file)
+    images = [os.path.join(image_file_folder, i) for i in meta.iloc[:, 0]]
+    landmarks = np.array(meta.iloc[:, 1:]).astype(float)
+    
+    return LandmarkData(images, landmarks)
 
 class ToTensor(object):
 
@@ -75,11 +145,12 @@ class MtcnnDataset(object):
         # get classification and regression tasks data
         if net_stage == 'pnet':
             # get landmarks data
-            self.landmark_data = landm.get_landmark_data(
+            self.landmark_data = get_landmark_data(
                 output_folder, suffix=suffix)
-            self.data = pnet.get_training_data_for_pnet(output_folder, suffix=suffix)
+            self.data = get_training_data(output_folder, suffix=suffix)
         elif net_stage == 'rnet':
-            pass  # TODO
+            self.landmark_data = get_landmark_data(output_folder, suffix=suffix)
+            self.data = get_training_data(output_folder, suffix=suffix)
         elif net_stage == 'onet':
             pass  # TODO
         else:
