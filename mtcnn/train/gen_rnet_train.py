@@ -96,9 +96,8 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
         candidate_boxes = detector.stage_one(processed_img, 0.5, 0.707, 12, 0.7)
         candidate_boxes = detector._convert_to_square(candidate_boxes).cpu().numpy()
 
-        cv2.cvtColor(img, cv2.COLOR_RGB2BGR) # Do this for compatible with caffe model
-
         neg_examples = []
+        part_examples = []
         pos_num = 0
         part_num = 0
         neg_num = 0
@@ -125,6 +124,7 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
             if max_iou < 0.3:
                 neg_num += 1
                 neg_examples.append(resized_im)
+                continue
 
             max_index = iou.argmax()
 
@@ -146,20 +146,27 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
 
             elif max_iou >= 0.4:
                 part_num += 1
-                total_part_num += 1
-                part_meta_file.write(
-                        ','.join([str(total_part_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
-                    
-                cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), resized_im)
+                part_examples.append(resized_im)
 
         # Prevent excessive negative samples
-        if neg_num > 3 * pos_num:
-            neg_examples = random.choices(neg_examples, k=3*pos_num)
+        if neg_num > 4 * pos_num:
+            neg_examples = random.sample(neg_examples, k=3*pos_num)
         
         for i in neg_examples:
             total_neg_num += 1
             negative_meta_file.write(','.join([str(total_neg_num) + '.jpg']) + '\n')
-            cv2.imwrite(os.path.join(negative_dest, str(total_neg_num) + '.jpg'), resized_im)
+            cv2.imwrite(os.path.join(negative_dest, str(total_neg_num) + '.jpg'), i)
+
+        # Prevent excessive part samples
+        if part_num > 2 * pos_num:
+            part_examples = random.sample(part_examples, k=2*pos_num)
+
+        for i in part_examples:
+            total_part_num += 1
+            part_meta_file.write(
+                    ','.join([str(total_part_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+                
+            cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), i)
 
     bar.update()
 

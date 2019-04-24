@@ -47,7 +47,7 @@ class TestGenTrain(unittest.TestCase):
         grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet')
         eval_meta = self.dataset.get_val_meta()
         eval_meta = random.choices(eval_meta, k=self.top)
-        grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet_eval')
+        grtd.generate_training_data_for_rnet(self.pnet, eval_meta, self.output_folder, suffix='rnet_eval')
 
     def test_get_rnet_train(self):
         rnet_data = get_training_data(self.output_folder, suffix='rnet')

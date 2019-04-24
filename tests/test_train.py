@@ -2,7 +2,7 @@ import unittest
 import torch
 from mtcnn.train.train_net import Trainer
 
-device = 'cuda' if torch.cuda.is_avaliable() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class TestTrain(unittest.TestCase):
 
