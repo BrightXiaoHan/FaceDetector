@@ -98,6 +98,7 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
 
         neg_examples = []
         part_examples = []
+        part_offsets = []
         pos_num = 0
         part_num = 0
         neg_num = 0
@@ -147,6 +148,7 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
             elif max_iou >= 0.4:
                 part_num += 1
                 part_examples.append(resized_im)
+                part_offsets.append([str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)])
 
         # Prevent excessive negative samples
         if neg_num > 4 * pos_num:
@@ -159,12 +161,13 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
 
         # Prevent excessive part samples
         if part_num > 2 * pos_num:
-            part_examples = random.sample(part_examples, k=2*pos_num)
+            choiced_index = random.sample(list(range(part_num)), k=2*pos_num)
+            part_examples = [part_examples[i] for i in choiced_index]
+            part_offsets = [part_offsets[i] for i in choiced_index]
 
-        for i in part_examples:
+        for i, offsets in zip(part_examples, part_offsets):
             total_part_num += 1
-            part_meta_file.write(
-                    ','.join([str(total_part_num) + '.jpg', str(offset_x1), str(offset_y1), str(offset_x2), str(offset_y2)]) + '\n')
+            part_meta_file.write(str(total_part_num) + '.jpg,' + ''.join(offsets) + '\n')
                 
             cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), i)
 
