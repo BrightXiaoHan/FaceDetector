@@ -97,3 +97,4 @@ cv2.waitKey(0)
 ## Tutorial
 
 [Detect step by step](./tutorial/detect_step_by_step.ipynb).
+[face_alignment step by step](./tutorial/face_align.ipynb)
