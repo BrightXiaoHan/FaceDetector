@@ -167,7 +167,7 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
 
         for i, offsets in zip(part_examples, part_offsets):
             total_part_num += 1
-            part_meta_file.write(str(total_part_num) + '.jpg,' + ''.join(offsets) + '\n')
+            part_meta_file.write(str(total_part_num) + '.jpg,' + ','.join(offsets) + '\n')
                 
             cv2.imwrite(os.path.join(part_dest, str(total_part_num) + '.jpg'), i)
 
