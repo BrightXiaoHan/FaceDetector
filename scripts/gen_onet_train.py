@@ -45,5 +45,5 @@ gotd.generate_training_data_for_onet(pnet, rnet, detection_meta, args.output_fol
 print("Done")
 
 print("Start generate classification and bounding box regression eval data.")
-gotd.generate_training_data_for_onet(pnet, rnet, detection_meta, args.output_folder, crop_size=48, suffix='onet_eval')
+gotd.generate_training_data_for_onet(pnet, rnet, detection_eval_meta, args.output_folder, crop_size=48, suffix='onet_eval')
 print("Done")
