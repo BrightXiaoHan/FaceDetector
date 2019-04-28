@@ -26,14 +26,15 @@ class TestGenLandmarks(unittest.TestCase):
         self.top = 1000
         self.crop_size = 24
         self.suffix = 'rnet'
+        self.argument = False
 
     def test_gen_landmark_data(self):
         meta = self.datasets.get_train_meta()
         meta = random.choices(meta, k=self.top)
         eval_meta = self.datasets.get_val_meta()
         eval_meta = random.choices(eval_meta, k=self.top)
-        gl.gen_landmark_data(eval_meta, self.crop_size, self.output_folder, argument=False, suffix=self.suffix + '_eval')
-        gl.gen_landmark_data(meta, self.crop_size, self.output_folder, argument=False, suffix=self.suffix)
+        gl.gen_landmark_data(eval_meta, self.crop_size, self.output_folder, argument=self.argument, suffix=self.suffix + '_eval')
+        gl.gen_landmark_data(meta, self.crop_size, self.output_folder, argument=self.argument, suffix=self.suffix)
 
     def test_get_landmark_data(self):
         data = get_landmark_data(self.output_folder, suffix=self.suffix)
