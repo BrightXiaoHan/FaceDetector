@@ -84,7 +84,7 @@ def gen_landmark_data(meta, size, output_folder, argument=False, suffix=''):
                 continue
 
             # random shift
-            for i in range(10):
+            for i in range(5):
                 bbox_size = npr.randint(
                     int(min(w, h) * 0.8), np.ceil(1.25 * max(w, h)))
                 delta_x = npr.randint(-w * 0.2, w * 0.2)
