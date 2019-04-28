@@ -14,21 +14,6 @@ from mtcnn.utils.functional import IoU
 
 here = os.path.dirname(__file__)
 
-class RnetData(object):
-    
-    """
-    Define a custom data structure for rnet training data.
-    """
-
-    def __init__(self, pos, part, neg, pos_reg, part_reg):
-
-        self.pos = pos
-        self.part = part
-        self.neg = neg
-        self.pos_reg = pos_reg
-        self.part_reg = part_reg
-
-
 def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24, suffix='rnet'):
     """
     For training P-net, crop positive(0), negative(1) and partface(2) from original images. 
