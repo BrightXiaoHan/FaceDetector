@@ -21,6 +21,9 @@ class Trainer(object):
         elif net_stage == 'rnet':
             self.net = RNet(is_train=True, device=self.device)
         
+        elif net_stage == 'onet':
+            self.net = ONet(is_train=True, device=self.device)
+        
         if optimizer is "SGD":
             # self.optimizer = torch.optim.SGD(self.net.parameters(), lr=0.01, momentum=0.9)
             self.optimizer = torch.optim.Adam(self.net.parameters())

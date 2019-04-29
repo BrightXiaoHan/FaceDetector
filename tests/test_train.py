@@ -2,7 +2,7 @@ import unittest
 import torch
 from mtcnn.train.train_net import Trainer
 
-device = 'cuda' if torch.cuda.is_avaliable() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class TestTrain(unittest.TestCase):
 
@@ -15,6 +15,9 @@ class TestTrain(unittest.TestCase):
         trainer = Trainer('rnet', device=device, log_dir='./runs/test/', output_folder='./runs/test/')
         trainer.train(3, 256, './output/test')
     
+    def test_train_onet(self):
+        trainer = Trainer('onet', device=device, log_dir='./runs/test/', output_folder='./runs/test')
+        trainer.train(3, 256, './output/test')
 
 if __name__ == "__main__":
     unittest.main()

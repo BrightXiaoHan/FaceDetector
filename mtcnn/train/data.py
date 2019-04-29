@@ -1,5 +1,6 @@
 import cv2
 import os
+import random
 import pandas as pd
 import torch
 import numpy as np
@@ -64,6 +65,9 @@ class LandmarkData(object):
     def __init__(self, images, landmarks):
         self.images = images
         self.landmarks = landmarks
+    
+    def __len__(self):
+        return len(self.images)
 
 
 def get_landmark_data(output_folder, suffix=''):
@@ -93,7 +97,13 @@ class ToTensor(object):
 
 class ImageMetaDataset(Dataset):
 
-    def __init__(self, image, meta=None):
+    def __init__(self, image, meta=None, max_len=-1):
+        if max_len >0 and max_len < len(image):
+            if meta is None:
+                image = random.sample(image, max_len)
+            else:
+                image, meta = zip(*random.sample(list(zip(image, meta)), max_len))
+
         self.image = image
         self.meta = meta
         self.transform = ToTensor()
@@ -152,15 +162,19 @@ class MtcnnDataset(object):
             self.landmark_data = get_landmark_data(output_folder, suffix=suffix)
             self.data = get_training_data(output_folder, suffix=suffix)
         elif net_stage == 'onet':
-            pass  # TODO
+            self.landmark_data = get_landmark_data(output_folder, suffix=suffix)
+            self.data = get_training_data(output_folder, suffix=suffix)
         else:
             raise AttributeError(
                 "Parameter 'net_stage' must be one of 'pnet', 'rnet' and 'onet' instead of %s." % net_stage)
 
-        self.pos = ImageMetaDataset(self.data.pos, self.data.pos_reg)
-        self.part = ImageMetaDataset(self.data.part, self.data.part_reg)
-        self.neg = ImageMetaDataset(self.data.neg)
-        self.landm = ImageMetaDataset(self.landmark_data.images, self.landmark_data.landmarks)
+        # Ensure the ratio of four kinds of data (pos, part, landmark, neg) is 1:1:1:3. (Follow the original paper)
+        min_len = int(min([len(self.data.pos), len(self.data.part), len(self.landmark_data.landmarks), len(self.data.neg) / 3]))
+
+        self.pos = ImageMetaDataset(self.data.pos, self.data.pos_reg, max_len=min_len)
+        self.part = ImageMetaDataset(self.data.part, self.data.part_reg, max_len=min_len)
+        self.neg = ImageMetaDataset(self.data.neg, max_len=min_len * 3)
+        self.landm = ImageMetaDataset(self.landmark_data.images, self.landmark_data.landmarks, max_len=min_len)
 
         pos_len = len(self.pos)
         part_len = len(self.part)

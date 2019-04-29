@@ -12,6 +12,7 @@ from mtcnn.datasets import get_by_name
 from mtcnn import get_net_caffe
 import mtcnn.train.gen_pnet_train as gptd
 import mtcnn.train.gen_rnet_train as grtd
+import mtcnn.train.gen_onet_train as gotd
 from mtcnn.train.data import get_training_data
 
 
@@ -47,8 +48,20 @@ class TestGenTrain(unittest.TestCase):
         grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet')
         eval_meta = self.dataset.get_val_meta()
         eval_meta = random.choices(eval_meta, k=self.top)
-        grtd.generate_training_data_for_rnet(self.pnet, meta, self.output_folder, suffix='rnet_eval')
+        grtd.generate_training_data_for_rnet(self.pnet, eval_meta, self.output_folder, suffix='rnet_eval')
 
     def test_get_rnet_train(self):
         rnet_data = get_training_data(self.output_folder, suffix='rnet')
         rnet_eval = get_training_data(self.output_folder, suffix='rnet_eval')
+
+    def test_gen_onet_train(self):
+        meta = self.dataset.get_train_meta()
+        meta = random.choices(meta, k=self.top)
+        gotd.generate_training_data_for_onet(self.pnet, self.rnet, meta, self.output_folder, suffix='onet')
+        eval_meta = self.dataset.get_val_meta()
+        eval_meta = random.choices(eval_meta, k=self.top)
+        gotd.generate_training_data_for_onet(self.pnet, self.rnet, eval_meta, self.output_folder, suffix='onet_eval') 
+
+    def test_get_onet_train(self):
+        rnet_data = get_training_data(self.output_folder, suffix='onet')
+        rnet_eval = get_training_data(self.output_folder, suffix='onet_eval')

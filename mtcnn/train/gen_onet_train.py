@@ -14,13 +14,14 @@ from mtcnn.utils.functional import IoU
 
 here = os.path.dirname(__file__)
 
-def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24, suffix='rnet'):
+def generate_training_data_for_onet(pnet, rnet, meta_data, output_folder, crop_size=48, suffix='onet'):
     """
     For training P-net, crop positive(0), negative(1) and partface(2) from original images. 
     The Generated file will be saved in "output_folder"
 
     Args:
         pnet (Pnet): Pre-trained pnet network.
+        rnet (Rnet): Pre-trained rnet network.
         meta_data (list): Each item contains a dict with file_name, num_bb (Number of bounding box), meta_data(x1, y1, w, h, **).
         output_folder (str): Directory to save the result.
         crop_size (int): image size to crop.
@@ -30,7 +31,8 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
     # Construct FaceDetector manually 
     detector = FaceDetector.__new__(FaceDetector)
     detector.pnet = pnet
-    detector.device = pnet.device
+    detector.rnet = rnet
+    detector.device = pnet.device 
 
     # Prepare for output folder.
     rnet_output_folder = os.path.join(output_folder, suffix)
@@ -79,6 +81,11 @@ def generate_training_data_for_rnet(pnet, meta_data, output_folder, crop_size=24
 
         processed_img = detector._preprocess(img)
         candidate_boxes = detector.stage_one(processed_img, 0.5, 0.707, 12, 0.7)
+        try:
+            candidate_boxes = detector.stage_two(processed_img, candidate_boxes, 0.5, 0.7)
+        except RuntimeError:
+            print("Out of memory on process img '%s.'" % file_name)
+            continue
         candidate_boxes = detector._convert_to_square(candidate_boxes).cpu().numpy()
 
         neg_examples = []
