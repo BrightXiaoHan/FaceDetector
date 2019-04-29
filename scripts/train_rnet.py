@@ -13,6 +13,6 @@ parser.add_argument('-r', dest="resume", default=False, type=bool, help="If resu
 
 args = parser.parse_args()
 
-trainer = Trainer('rnet', device='cuda:0', log_dir='./runs/rnet/', resume=args.resume, output_folder='./runs/rnet')
+trainer = Trainer('rnet', device=args.device, log_dir='./runs/rnet/', resume=args.resume, output_folder='./runs/rnet')
 trainer.train(args.epoch, args.batch_size, args.data_train)
 trainer.export_model(args.output_filename)

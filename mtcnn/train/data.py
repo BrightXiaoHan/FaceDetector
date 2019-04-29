@@ -162,7 +162,8 @@ class MtcnnDataset(object):
             self.landmark_data = get_landmark_data(output_folder, suffix=suffix)
             self.data = get_training_data(output_folder, suffix=suffix)
         elif net_stage == 'onet':
-            pass  # TODO
+            self.landmark_data = get_landmark_data(output_folder, suffix=suffix)
+            self.data = get_training_data(output_folder, suffix=suffix)
         else:
             raise AttributeError(
                 "Parameter 'net_stage' must be one of 'pnet', 'rnet' and 'onet' instead of %s." % net_stage)

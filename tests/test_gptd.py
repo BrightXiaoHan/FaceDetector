@@ -62,6 +62,6 @@ class TestGenTrain(unittest.TestCase):
         eval_meta = random.choices(eval_meta, k=self.top)
         gotd.generate_training_data_for_onet(self.pnet, self.rnet, eval_meta, self.output_folder, suffix='onet_eval') 
 
-    def test_get_rnet_train(self):
+    def test_get_onet_train(self):
         rnet_data = get_training_data(self.output_folder, suffix='onet')
         rnet_eval = get_training_data(self.output_folder, suffix='onet_eval')
