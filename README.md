@@ -90,7 +90,7 @@ image = mtcnn.utils.draw.draw_boxes2(image, boxes)
 image = mtcnn.utils.draw.batch_draw_landmarks(image, landmarks)
 
 # Show the result
-cv2.imshwow(image)
+cv2.imshwow("Detected image.", image)
 cv2.waitKey(0)
 ```
 

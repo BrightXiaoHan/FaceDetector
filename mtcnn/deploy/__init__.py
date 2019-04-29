@@ -20,10 +20,10 @@ def get_net_caffe(weight_folder):
     """
     pnet, rnet, onet = get_net()
     pnet.load_caffe_model(
-    np.load(os.path.join(weight_folder, 'pnet.npy'))[()])
+    np.load(os.path.join(weight_folder, 'pnet.npy'), allow_pickle=True)[()])
     rnet.load_caffe_model(
-        np.load(os.path.join(weight_folder, 'rnet.npy'))[()])
+        np.load(os.path.join(weight_folder, 'rnet.npy'), allow_pickle=True)[()])
     onet.load_caffe_model(
-        np.load(os.path.join(weight_folder, 'onet.npy'))[()])
+        np.load(os.path.join(weight_folder, 'onet.npy'), allow_pickle=True)[()])
 
     return pnet, rnet, onet
