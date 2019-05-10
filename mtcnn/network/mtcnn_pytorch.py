@@ -284,7 +284,7 @@ class ONet(_Net):
 
     def __init__(self, **kwargs):
         # Hyper-parameter from original papaer
-        param = [1, 0.5, 1]
+        param = [1, 5, 50]
         super(ONet, self).__init__(*param, **kwargs)
 
     def _init_net(self):
