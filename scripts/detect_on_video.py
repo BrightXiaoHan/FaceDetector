@@ -15,10 +15,15 @@ parser.add_argument("--minsize", type=int, default=24,
                     help="Min size of faces you want to detect. Larger number will speed up detect method.")
 parser.add_argument("--device", type=str, default='cpu',
                     help="Target device to process video.")
+parser.add_argument("--model_dir", type=str, default="", help="There are pre-trained pnet, rnet, onet in this folder.")
 
 args = parser.parse_args()
 
-pnet, rnet, onet = mtcnn.get_net_caffe('output/converted')
+if args.model_dir == '':
+    pnet, rnet, onet = mtcnn.get_net_caffe('output/converted')
+else:
+    pnet, rnet, onet = mtcnn.get_net(args.model_dir)
+
 detector = mtcnn.FaceDetector(pnet, rnet, onet, device=args.device)
 
 fourcc = cv2.VideoWriter_fourcc(*"XVID")
