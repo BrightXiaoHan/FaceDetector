@@ -94,6 +94,9 @@ cv2.imshwow("Detected image.", image)
 cv2.waitKey(0)
 ```
 
+## Doc
+[Train your own model from scratch](./doc/TRAIN.md)
+
 ## Tutorial
 
 [Detect step by step](./tutorial/detect_step_by_step.ipynb).
