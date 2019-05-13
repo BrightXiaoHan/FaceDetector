@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from mtcnn.utils.align_trans import get_reference_facial_points, warp_and_crop_face
 
 refrence = get_reference_facial_points(default_square= True)
@@ -22,6 +23,8 @@ def align_multi(img, boxes, landmarks, crop_size=(112, 112)):
     for landmark in landmarks:
         warped_face = warp_and_crop_face(img, landmark, refrence, crop_size=crop_size)
         faces.append(warped_face)
+
+    faces = np.stack(faces)
     return boxes, faces
 
 def filter_side_face(boxes, landmarks):
