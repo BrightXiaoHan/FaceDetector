@@ -23,8 +23,8 @@ def align_multi(img, boxes, landmarks, crop_size=(112, 112)):
     for landmark in landmarks:
         warped_face = warp_and_crop_face(img, landmark, refrence, crop_size=crop_size)
         faces.append(warped_face)
-
-    faces = np.stack(faces)
+    if len(faces) > 0:
+        faces = np.stack(faces)
     return boxes, faces
 
 def filter_side_face(boxes, landmarks):
