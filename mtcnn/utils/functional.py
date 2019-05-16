@@ -2,7 +2,8 @@ import cv2
 import torch
 import numpy as np
 
-import mtcnn.utils.nms as nms_c 
+from mtcnn.utils.nms.cpu_nms import cpu_nms
+from mtcnn.utils.nms.gpu_nms import gpu_nms
 
 def IoU(box, boxes):
     """Compute IoU between detect box and gt boxes
@@ -34,7 +35,7 @@ def IoU(box, boxes):
     return ovr
 
 
-def nms(dets, scores, thresh):
+def nms(dets, scores, thresh, device="cpu"):
     """
     greedily select boxes with high confidence
     keep boxes overlap <= thresh
@@ -43,7 +44,15 @@ def nms(dets, scores, thresh):
     :param thresh: retain overlap <= thresh
     :return: indexes to keep
     """
-    ret = nms_c.nms(dets.astype(np.float32), scores.astype(np.float32), thresh)
+    if isinstance(device, str):
+        device = torch.device(device)
+
+    if device.type == 'cpu':
+        ret = cpu_nms(dets.astype(np.float32), scores.astype(np.float32), thresh)
+    
+    else:
+        dets = np.concatenate([dets.astype(np.float32), scores.astype(np.float32).reshape(-1, 1)], 1)
+        ret = gpu_nms(dets , thresh, device_id=device.index)
 
     return ret
 

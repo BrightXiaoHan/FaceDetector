@@ -30,7 +30,7 @@ class TestDetection(unittest.TestCase):
         onet.load_caffe_model(
             np.load(os.path.join(weight_folder, 'onet.npy'))[()])
 
-        self.detector = detect.FaceDetector(pnet, rnet, onet)
+        self.detector = detect.FaceDetector(pnet, rnet, onet, "cuda:0")
         self.test_img = os.path.join(here, 'asset/images/office5.jpg')
 
     def test_detection(self):

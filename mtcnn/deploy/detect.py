@@ -4,7 +4,6 @@ import torch
 import time
 
 import mtcnn.utils.functional as func
-from mtcnn.utils.nms import nms
 
 def _no_grad(func):
 
@@ -246,7 +245,7 @@ class FaceDetector(object):
         # nms
         if candidate_boxes.shape[0] != 0:
             candidate_boxes = self._calibrate_box(candidate_boxes, candidate_offsets)
-            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), nms_threshold)
+            keep = func.nms(candidate_boxes.cpu().numpy(), candidate_scores.cpu().numpy(), nms_threshold, device=self.device)
             return candidate_boxes[keep]
         else:
             return candidate_boxes
@@ -288,7 +287,7 @@ class FaceDetector(object):
         if boxes.shape[0] > 0:
             boxes = self._calibrate_box(boxes, box_regs)
             # nms
-            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold, device=self.device)
             boxes = boxes[keep]
         return boxes
 
@@ -334,7 +333,7 @@ class FaceDetector(object):
             boxes = self._refine_boxes(boxes, width, height)
             
             # nms
-            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold)
+            keep = func.nms(boxes.cpu().numpy(), scores.cpu().numpy(), nms_threshold, device=self.device)
             boxes = boxes[keep]
             landmarks = landmarks[keep]
             
