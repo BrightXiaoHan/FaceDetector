@@ -1,7 +1,11 @@
 import os
+import torch
 import numpy as np
 import mtcnn.network.mtcnn_pytorch as mtcnn_pytorch
 
+from .detect import FaceDetector
+
+here = os.path.dirname(os.path.abspath(__file__))
 
 def get_net(weight_folder=None):
     """
@@ -33,3 +37,13 @@ def get_net_caffe(weight_folder):
         np.load(os.path.join(weight_folder, 'onet.npy'), allow_pickle=True)[()])
 
     return pnet, rnet, onet
+
+def get_default_detector(device=None):
+    """
+    Get the default face detector with pnet, rnet, onet trained by original mtcnn author. 
+    """
+    pnet, rnet, onet = get_net_caffe(os.path.join(here, "models"))
+    if device is None:
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    detector = FaceDetector(pnet, rnet, onet, device)
+    return detector

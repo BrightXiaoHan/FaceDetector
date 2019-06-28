@@ -131,6 +131,15 @@ ext_modules = [
               ),
 ]
 
+def package_files(directory):
+    paths = []
+    for (path, directories, filenames) in os.walk(directory):
+        for filename in filenames:
+            paths.append(os.path.join('..', path, filename))
+    return paths
+
+extra_files = package_files('mtcnn')
+
 
 setup(
     name="torch_mtcnn",
@@ -141,5 +150,6 @@ setup(
     packages=['mtcnn', 'mtcnn.datasets', 'mtcnn.deploy', 'mtcnn.network', 'mtcnn.train', 'mtcnn.utils', 'mtcnn.utils.nms'],
     ext_modules=ext_modules,
     # inject our custom trigger
-    cmdclass={'build_ext': custom_build_ext}
+    cmdclass={'build_ext': custom_build_ext},
+    package_data={'': extra_files}
 )
