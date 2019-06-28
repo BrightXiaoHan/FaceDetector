@@ -28,6 +28,7 @@ def get_net_caffe(weight_folder):
     """
     Create pnet, rnet, onet for detector. And init weights with caffe model from original mtcnn repo.
     """
+    weight_folder = os.path.join(here, "models")
     pnet, rnet, onet = get_net()
     pnet.load_caffe_model(
         np.load(os.path.join(weight_folder, 'pnet.npy'), allow_pickle=True)[()])
