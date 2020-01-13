@@ -45,7 +45,7 @@ If you have gpu on your mechine, you can follow the [official instruction](https
 python setup.py build_ext --inplace
 ```
 
-### Olso, you can install mtcnn as a package
+### Also, you can install mtcnn as a package
 ```
 python setup.py install
 ```
