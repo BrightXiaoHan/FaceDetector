@@ -1,3 +1,4 @@
+import sys
 import os
 from os.path import join as pjoin
 import numpy as np
@@ -5,6 +6,12 @@ from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
+
+USE_GPU = True
+
+if "--disable_gpu" in sys.argv:
+    USE_GPU = False
+    sys.argv.remove("--disable_gpu")
 
 
 def find_in_path(name, path):
@@ -34,23 +41,30 @@ def locate_cuda():
     else:
         # otherwise, search the PATH for NVCC
         default_path = pjoin(os.sep, 'usr', 'local', 'cuda', 'bin')
-        nvcc = find_in_path('nvcc', os.environ['PATH'] + os.pathsep + default_path)
+        nvcc = find_in_path('nvcc',
+                            os.environ['PATH'] + os.pathsep + default_path)
         if nvcc is None:
-            raise EnvironmentError('The nvcc binary could not be '
-                                   'located in your $PATH. Either add it to your path, or set $CUDAHOME')
+            raise EnvironmentError(
+                'The nvcc binary could not be '
+                'located in your $PATH. Either add it to your path, or set $CUDAHOME'
+            )
         home = os.path.dirname(os.path.dirname(nvcc))
 
-    cudaconfig = {'home': home, 'nvcc': nvcc,
-                  'include': pjoin(home, 'include'),
-                  'lib64': pjoin(home, 'lib64')}
+    cudaconfig = {
+        'home': home,
+        'nvcc': nvcc,
+        'include': pjoin(home, 'include'),
+        'lib64': pjoin(home, 'lib64')
+    }
     for k, v in cudaconfig.items():
         if not os.path.exists(v):
-            raise EnvironmentError('The CUDA %s path could not be located in %s' % (k, v))
+            raise EnvironmentError(
+                'The CUDA %s path could not be located in %s' % (k, v))
 
     return cudaconfig
 
 
-CUDA = locate_cuda()
+CUDA = locate_cuda() if USE_GPU else None
 
 # Obtain the numpy include directory.  This logic works across numpy versions.
 try:
@@ -106,30 +120,33 @@ class custom_build_ext(build_ext):
 
 
 ext_modules = [
-    Extension(
-        "mtcnn.utils.nms.cpu_nms",
-        ["mtcnn/utils/nms/cpu_nms.pyx"],
-        extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
-        include_dirs=[numpy_include]
-    ),
-    Extension('mtcnn.utils.nms.gpu_nms',
-              ['mtcnn/utils/nms/nms_kernel.cu', 'mtcnn/utils/nms/gpu_nms.pyx'],
-              library_dirs=[CUDA['lib64']],
-              libraries=['cudart'],
-              language='c++',
-              runtime_library_dirs=[CUDA['lib64']],
-              # this syntax is specific to this build system
-              # we're only going to use certain compiler args with nvcc and not with gcc
-              # the implementation of this trick is in customize_compiler() below
-              extra_compile_args={'gcc': ["-Wno-unused-function"],
-                                  'nvcc': ['-arch=sm_52',
-                                           '--ptxas-options=-v',
-                                           '-c',
-                                           '--compiler-options',
-                                           "'-fPIC'"]},
-              include_dirs=[numpy_include, CUDA['include']]
-              ),
+    Extension("mtcnn.utils.nms.cpu_nms", ["mtcnn/utils/nms/cpu_nms.pyx"],
+              extra_compile_args={'gcc': ["-Wno-cpp", "-Wno-unused-function"]},
+              include_dirs=[numpy_include]),
 ]
+
+if USE_GPU:
+    gpu_extention = Extension(
+        'mtcnn.utils.nms.gpu_nms',
+        ['mtcnn/utils/nms/nms_kernel.cu', 'mtcnn/utils/nms/gpu_nms.pyx'],
+        library_dirs=[CUDA['lib64']],
+        libraries=['cudart'],
+        language='c++',
+        runtime_library_dirs=[CUDA['lib64']],
+        # this syntax is specific to this build system
+        # we're only going to use certain compiler args with nvcc and not with gcc
+        # the implementation of this trick is in customize_compiler() below
+        extra_compile_args={
+            'gcc': ["-Wno-unused-function"],
+            'nvcc': [
+                '-arch=sm_52', '--ptxas-options=-v', '-c',
+                '--compiler-options', "'-fPIC'"
+            ]
+        },
+        include_dirs=[numpy_include, CUDA['include']])
+
+    ext_modules.append(gpu_extention)
+
 
 def package_files(directory):
     paths = []
@@ -138,18 +155,21 @@ def package_files(directory):
             paths.append(os.path.join('..', path, filename))
     return paths
 
-extra_files = package_files('mtcnn')
 
+extra_files = package_files('mtcnn')
 
 setup(
     name="torch_mtcnn",
     version="0.1",
-    description='MTCNN pytorch implementation. Joint training and detecting together.',
+    description=
+    'MTCNN pytorch implementation. Joint training and detecting together.',
     author='HanBing',
     author_email='beatmight@gmail.com',
-    packages=['mtcnn', 'mtcnn.datasets', 'mtcnn.deploy', 'mtcnn.network', 'mtcnn.train', 'mtcnn.utils', 'mtcnn.utils.nms'],
+    packages=[
+        'mtcnn', 'mtcnn.datasets', 'mtcnn.deploy', 'mtcnn.network',
+        'mtcnn.train', 'mtcnn.utils', 'mtcnn.utils.nms'
+    ],
     ext_modules=ext_modules,
     # inject our custom trigger
     cmdclass={'build_ext': custom_build_ext},
-    package_data={'': extra_files}
-)
+    package_data={'': extra_files})

@@ -3,7 +3,11 @@ import torch
 import numpy as np
 
 from mtcnn.utils.nms.cpu_nms import cpu_nms
-from mtcnn.utils.nms.gpu_nms import gpu_nms
+try:
+    from mtcnn.utils.nms.gpu_nms import gpu_nms
+except:
+    gpu_nms = cpu_nms
+
 
 def IoU(box, boxes):
     """Compute IoU between detect box and gt boxes
@@ -30,7 +34,7 @@ def IoU(box, boxes):
     h = np.maximum(0, yy2 - yy1 + 1)
 
     inter = w * h
-    ovr = np.true_divide(inter,(box_area + area - inter))
+    ovr = np.true_divide(inter, (box_area + area - inter))
     #ovr = inter / (box_area + area - inter)
     return ovr
 
@@ -48,15 +52,19 @@ def nms(dets, scores, thresh, device="cpu"):
         device = torch.device(device)
 
     if device.type == 'cpu':
-        ret = cpu_nms(dets.astype(np.float32), scores.astype(np.float32), thresh)
-    
+        ret = cpu_nms(dets.astype(np.float32), scores.astype(np.float32),
+                      thresh)
+
     else:
-        dets = np.concatenate([dets.astype(np.float32), scores.astype(np.float32).reshape(-1, 1)], 1)
-        ret = gpu_nms(dets , thresh, device_id=device.index)
+        dets = np.concatenate([
+            dets.astype(np.float32),
+            scores.astype(np.float32).reshape(-1, 1)
+        ], 1)
+        ret = gpu_nms(dets, thresh, device_id=device.index)
 
     return ret
 
-    
+
 def imnormalize(img):
     """
     Normalize pixel value from (0, 255) to (-1, 1) 
@@ -64,6 +72,7 @@ def imnormalize(img):
 
     img = (img - 127.5) * 0.0078125
     return img
+
 
 def iou_torch(box, boxes):
     """Compute IoU between detect box and gt boxes
@@ -91,5 +100,5 @@ def iou_torch(box, boxes):
 
     inter = w * h
     ovr = inter.float() / (box_area + area - inter).float()
-    
+
     return ovr
